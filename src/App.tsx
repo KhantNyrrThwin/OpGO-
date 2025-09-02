@@ -1,33 +1,33 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
-
+import Navbar from './components/navbar'
+import Flags from './components/flags'
+import Registers from './components/register'
 function App() {
-  const [count, setCount] = useState(0)
+  
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+      <Navbar />
+      <div className="flex flex-row w-full" >
+        <div className="w-[45%] bg-[#d9d9d9]">
+          <div className='h-9 bg-[#D9D9D9]'>
+            Buttons
+          </div>
+          <input type='text' className='bg-[#121212] text-white no-focus w-full' style={{ height: "calc(100vh - 96px)" }} ></input>
+        </div>
+        <div className="w-[35%] bg-[#3F3F46] flex flex-col">
+          <div className="h-[30%] bg-green-500">
+            <Flags />
+          </div>
+          <div className="h-[70%] bg-green-700">
+            <Registers />
+          </div>
+        </div>
+        <div className="w-[20%] bg-black text-white">
+          User Data
+        </div>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+
     </>
   )
 }
