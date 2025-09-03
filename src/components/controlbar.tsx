@@ -110,7 +110,7 @@ export default function ControlBar() {
                 className="px-15 py-4 hover:bg-green-700 cursor-pointer"
                 onClick={handleOpen}
               >
-                Open (.mpc)
+                Open 
               </li>
               <li
                 className="px-15 py-4 hover:bg-green-700 cursor-pointer"
@@ -122,7 +122,7 @@ export default function ControlBar() {
                 className="px-15 py-4 hover:bg-green-700 cursor-pointer"
                 onClick={handleSaveAs}
               >
-                Save As (.mpc)
+                Save As 
               </li>
             </ul>
           </div>
