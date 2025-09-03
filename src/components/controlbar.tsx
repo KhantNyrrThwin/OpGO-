@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { FolderIcon, PlayIcon } from '@heroicons/react/24/solid';
 import { useFileContext } from '../contexts/FileContext';
+import { executeMVI, getInitialFlags, type Registers as RegistersType, type Flags as FlagsType } from '../functions/functions';
 
 export default function ControlBar() {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -41,6 +42,8 @@ export default function ControlBar() {
     window.dispatchEvent(new CustomEvent('newFile')); // ✅ Clear editor via event
     setShowDropdown(false);
   };
+
+  const [cpuFlags, setCpuFlags] = useState<FlagsType>(getInitialFlags());
 
   const handleOpen = async () => {
     try {
@@ -89,6 +92,33 @@ export default function ControlBar() {
     });
   };
 
+  const getCurrentRegisters = (): Promise<RegistersType> => {
+    return new Promise((resolve) => {
+      const handleRegs = (event: CustomEvent) => {
+        resolve(event.detail as RegistersType);
+        window.removeEventListener('getRegisters', handleRegs as EventListener);
+      };
+      window.addEventListener('getRegisters', handleRegs as EventListener);
+      window.dispatchEvent(new CustomEvent('requestRegisters'));
+    });
+  };
+
+  const stepInto = async () => {
+    const content = await getCurrentContent();
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+
+    const nextInstruction = lines[0];
+
+    const regs = await getCurrentRegisters();
+    const { registers: newRegs, flags: newFlags } = executeMVI(nextInstruction, regs, cpuFlags);
+
+    setCpuFlags(newFlags);
+
+    window.dispatchEvent(new CustomEvent('setRegisters', { detail: newRegs }));
+    window.dispatchEvent(new CustomEvent('setFlags', { detail: newFlags }));
+  };
+
   return (
     <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative">
       {/* File Menu */}
@@ -129,7 +159,8 @@ export default function ControlBar() {
           <div className="bg-white w-4 h-4" />
         </button>
 
-        <button className="bg-[#add8e6] hover:bg-[#9ccbe0] text-black border border-black px-4 py-1 rounded cursor-pointer">
+        <button className="bg-[#add8e6] hover:bg-[#9ccbe0] text-black border border-black px-4 py-1 rounded cursor-pointer" onClick={stepInto}>
+
           Step Into
         </button>
 

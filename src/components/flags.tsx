@@ -5,8 +5,8 @@ import Unactive from "../assets/Unactive.png"
 
 
 export default function Flags(){
-    const [zeroFlag, setZeroFlag] = useState(1)
-    const [signFlag, setSignFlag] = useState(1)
+    const [zeroFlag, setZeroFlag] = useState(0)
+    const [signFlag, setSignFlag] = useState(0)
     const [carryFlag, setCarryFlag] = useState(0)
 
     const setZero = (value: number) => setZeroFlag(value)
