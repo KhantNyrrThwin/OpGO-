@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import RegTitle from "../assets/Register Title.png"
+import type { Registers as RegistersType } from "../functions/functions";
 
 
 interface RegisterData {
@@ -14,14 +15,33 @@ interface RegisterData {
 
 export default function Registers() {
   const [registers, setRegisters] = useState<RegisterData>({
-    A: ["0", "B"],
+    A: ["0", "0"],
     B: ["0", "0"],
     C: ["0", "0"],
-    D: ["A", "A"],
+    D: ["0", "0"],
     E: ["0", "0"],
     H: ["0", "0"],
     L: ["0", "0"],
   });
+
+  useEffect(() => {
+    const handleSetRegisters = (e: CustomEvent) => {
+      const next: RegistersType = e.detail;
+      setRegisters(next as RegisterData);
+    };
+
+    const handleRequestRegisters = () => {
+      window.dispatchEvent(new CustomEvent('getRegisters', { detail: registers }));
+    };
+
+    window.addEventListener('setRegisters', handleSetRegisters as EventListener);
+    window.addEventListener('requestRegisters', handleRequestRegisters);
+
+    return () => {
+      window.removeEventListener('setRegisters', handleSetRegisters as EventListener);
+      window.removeEventListener('requestRegisters', handleRequestRegisters);
+    };
+  }, [registers]);
 
   const updateRegister = (register: keyof RegisterData, index: 0 | 1, value: string) => {
     setRegisters(prev => ({

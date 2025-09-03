@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { FolderIcon, PlayIcon} from '@heroicons/react/24/solid';
 import { useFileContext } from '../contexts/FileContext';
+import { executeMVI, getInitialFlags, type Registers as RegistersType, type Flags as FlagsType } from '../functions/functions';
 
 export default function ControlBar() {
   const [showDropdown, setShowDropdown] = useState(false);
   const { fileName, hasUnsavedChanges, openFile, saveFile, saveAsFile } = useFileContext();
 
+  const [cpuFlags, setCpuFlags] = useState<FlagsType>(getInitialFlags());
+
   const handleOpen = async () => {
     try {
       const content = await openFile();
-      // We'll need to pass this content to InstructionInput
-      // For now, we'll dispatch a custom event
       window.dispatchEvent(new CustomEvent('fileOpened', { detail: content }));
       setShowDropdown(false);
     } catch (error) {
@@ -20,7 +21,6 @@ export default function ControlBar() {
 
   const handleSave = async () => {
     try {
-      // Get content from InstructionInput via custom event
       const content = await getCurrentContent();
       await saveFile(content);
       setShowDropdown(false);
@@ -48,6 +48,33 @@ export default function ControlBar() {
       window.addEventListener('getContent', handleContent as EventListener);
       window.dispatchEvent(new CustomEvent('requestContent'));
     });
+  };
+
+  const getCurrentRegisters = (): Promise<RegistersType> => {
+    return new Promise((resolve) => {
+      const handleRegs = (event: CustomEvent) => {
+        resolve(event.detail as RegistersType);
+        window.removeEventListener('getRegisters', handleRegs as EventListener);
+      };
+      window.addEventListener('getRegisters', handleRegs as EventListener);
+      window.dispatchEvent(new CustomEvent('requestRegisters'));
+    });
+  };
+
+  const stepInto = async () => {
+    const content = await getCurrentContent();
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+
+    const nextInstruction = lines[0];
+
+    const regs = await getCurrentRegisters();
+    const { registers: newRegs, flags: newFlags } = executeMVI(nextInstruction, regs, cpuFlags);
+
+    setCpuFlags(newFlags);
+
+    window.dispatchEvent(new CustomEvent('setRegisters', { detail: newRegs }));
+    window.dispatchEvent(new CustomEvent('setFlags', { detail: newFlags }));
   };
 
   return (
@@ -98,7 +125,7 @@ export default function ControlBar() {
         </button>
 
         {/* Step Into Button */}
-        <button className="bg-[#add8e6] hover:bg-[#9ccbe0] text-black border border-black px-4 py-1 rounded cursor-pointer">
+        <button className="bg-[#add8e6] hover:bg-[#9ccbe0] text-black border border-black px-4 py-1 rounded cursor-pointer" onClick={stepInto}>
           Step Into
         </button>
 
