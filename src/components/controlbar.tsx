@@ -5,9 +5,16 @@ import { useFileContext } from '../contexts/FileContext';
 export default function ControlBar() {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { fileName, hasUnsavedChanges, openFile, saveFile, saveAsFile } = useFileContext();
 
-  // Close dropdown when clicking outside
+  const {
+    fileName,
+    hasUnsavedChanges,
+    openFile,
+    saveFile,
+    saveAsFile,
+    resetFileName, // ✅ Import from context
+  } = useFileContext();
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -18,7 +25,6 @@ export default function ControlBar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Handle Ctrl+S / Cmd+S to trigger Save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
@@ -31,7 +37,8 @@ export default function ControlBar() {
   }, [fileName]);
 
   const handleNewFile = () => {
-    window.dispatchEvent(new CustomEvent('newFile'));
+    resetFileName(); // ✅ Update filename in context
+    window.dispatchEvent(new CustomEvent('newFile')); // ✅ Clear editor via event
     setShowDropdown(false);
   };
 
@@ -49,7 +56,6 @@ export default function ControlBar() {
     try {
       const content = await getCurrentContent();
 
-      // Ensure filename ends with .mpc
       let finalFileName = fileName;
       if (!finalFileName.endsWith('.mpc')) {
         finalFileName += '.mpc';
@@ -91,38 +97,26 @@ export default function ControlBar() {
           onClick={() => setShowDropdown(!showDropdown)}
           className="flex items-center gap-2 hover:text-green-400"
         >
-          <FolderIcon className="text-yellow-500 h-8 w-8 cursor-pointer" />
-          <span className="text-black font-semibold">
-            {fileName}{hasUnsavedChanges ? ' *' : ''}
-          </span>
+          <div className="file-display flex items-center gap-2">
+            <FolderIcon className="text-yellow-500 h-8 w-8 cursor-pointer" />
+            <span className="text-black font-semibold">{fileName}</span>
+          </div>
         </button>
 
         {showDropdown && (
           <div className="absolute top-8 left-0 bg-[#3a3a3a] border border-gray-600 rounded shadow-lg z-10">
             <ul className="flex flex-col text-left">
-              <li
-                className="px-15 py-4 hover:bg-green-700 cursor-pointer"
-                onClick={handleNewFile}
-              >
+              <li className="px-15 py-4 hover:bg-green-700 cursor-pointer" onClick={handleNewFile}>
                 New File
               </li>
-              <li
-                className="px-15 py-4 hover:bg-green-700 cursor-pointer"
-                onClick={handleOpen}
-              >
-                Open 
+              <li className="px-15 py-4 hover:bg-green-700 cursor-pointer" onClick={handleOpen}>
+                Open
               </li>
-              <li
-                className="px-15 py-4 hover:bg-green-700 cursor-pointer"
-                onClick={handleSave}
-              >
+              <li className="px-15 py-4 hover:bg-green-700 cursor-pointer" onClick={handleSave}>
                 Save
               </li>
-              <li
-                className="px-15 py-4 hover:bg-green-700 cursor-pointer"
-                onClick={handleSaveAs}
-              >
-                Save As 
+              <li className="px-15 py-4 hover:bg-green-700 cursor-pointer" onClick={handleSaveAs}>
+                Save As
               </li>
             </ul>
           </div>
