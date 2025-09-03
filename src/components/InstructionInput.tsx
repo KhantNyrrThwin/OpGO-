@@ -1,9 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useFileContext } from '../contexts/FileContext';
 
 export default function InstructionInput() {
   const [instructions, setInstructions] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { setHasUnsavedChanges } = useFileContext();
 
   const lines = instructions.split('\n');
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFileOpened = (event: CustomEvent) => {
+      setInstructions(event.detail);
+      setHasUnsavedChanges(false);
+    };
+
+    const handleRequestContent = () => {
+      window.dispatchEvent(new CustomEvent('getContent', { detail: instructions }));
+    };
+
+    window.addEventListener('fileOpened', handleFileOpened as EventListener);
+    window.addEventListener('requestContent', handleRequestContent);
+
+    return () => {
+      window.removeEventListener('fileOpened', handleFileOpened as EventListener);
+      window.removeEventListener('requestContent', handleRequestContent);
+    };
+  }, [instructions, setHasUnsavedChanges]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
@@ -36,11 +64,15 @@ export default function InstructionInput() {
 
       
       <textarea
+        ref={textareaRef}
         spellCheck={false}
         autoCorrect="off"
         autoCapitalize="off"
         value={instructions}
-        onChange={(e) => setInstructions(e.target.value)}
+        onChange={(e) => {
+          setInstructions(e.target.value);
+          setHasUnsavedChanges(true);
+        }}
         onKeyDown={handleKeyDown}
         placeholder="Type your instructions here."
         className="flex-grow bg-transparent p-2 resize-none outline-none leading-[3rem] whitespace-pre"

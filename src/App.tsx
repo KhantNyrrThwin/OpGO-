@@ -4,9 +4,31 @@ import Flags from './components/flags';
 import Registers from './components/register';
 import InstructionInput from './components/InstructionInput';
 import ControlBar from './components/controlbar';
+import UserGrid from './components/user_data';
+import FileNameDialog from './components/FileNameDialog';
+import { FileProvider, useFileContext } from './contexts/FileContext';
 
 
-function App() {
+function AppContent() {
+  const { showFileNameDialog, setShowFileNameDialog, handleSaveWithName, fileName } = useFileContext();
+
+  const handleSaveWithNameWrapper = async (newFileName: string) => {
+    // Get current content from InstructionInput
+    const content = await getCurrentContent();
+    await handleSaveWithName(newFileName, content);
+  };
+
+  const getCurrentContent = (): Promise<string> => {
+    return new Promise((resolve) => {
+      const handleContent = (event: CustomEvent) => {
+        resolve(event.detail);
+        window.removeEventListener('getContent', handleContent as EventListener);
+      };
+      window.addEventListener('getContent', handleContent as EventListener);
+      window.dispatchEvent(new CustomEvent('requestContent'));
+    });
+  };
+
   return (
     <>
       <Navbar />
@@ -21,38 +43,35 @@ function App() {
 
        
         <div className="w-[35%] bg-[#3F3F46] flex flex-col">
-          <div className="h-[30%] bg-green-500">
+          <div className="h-[35%] bg-green-500">
             <Flags />
           </div>
-          <div className="h-[70%] bg-green-700">
+          <div className="h-[65%] bg-green-700">
             <Registers />
           </div>
         </div>
 
     
-        <div className="w-[20%] bg-black text-white p-2">
-          <h2 className="text-lg font-semibold mb-2">User Data Grid</h2>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-600">
-                <th className="text-left">Address</th>
-                <th className="text-left">Data</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>2000H</td>
-                <td>08H</td>
-              </tr>
-              <tr>
-                <td>2001H</td>
-                <td>00H</td>
-              </tr>
-            </tbody>
-          </table>
+        <div className="w-[20%] bg-black text-white p-2  ">
+          <UserGrid />
         </div>
+         
       </div>
+      <FileNameDialog
+        isOpen={showFileNameDialog}
+        currentFileName={fileName}
+        onSave={handleSaveWithNameWrapper}
+        onCancel={() => setShowFileNameDialog(false)}
+      />
     </>
+  );
+}
+
+function App() {
+  return (
+    <FileProvider>
+      <AppContent />
+    </FileProvider>
   );
 }
 
