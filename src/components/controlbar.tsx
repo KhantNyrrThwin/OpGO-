@@ -8,7 +8,7 @@ import { executeJNZ } from '../functions/jnz';
 import { executeJZ } from '../functions/jz';
 import { executeJNC } from '../functions/jnc';
 import { parseLabels } from '../functions/parseLabels';
-import { getInitialFlags, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
+import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
 export default function ControlBar() {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -16,6 +16,8 @@ export default function ControlBar() {
 
   const [cpuFlags, setCpuFlags] = useState<FlagsType>(getInitialFlags());
   const currentLineRef = useRef<number>(0);
+  const isFirstStepRef = useRef<boolean>(true);
+  const isRunningRef = useRef<boolean>(false);
 
   const handleOpen = async () => {
     try {
@@ -39,8 +41,7 @@ export default function ControlBar() {
 
   const handleSaveAs = async () => {
     try {
-      const content = await getCurrentContent();
-      await saveAsFile(content);
+      await saveAsFile();
       setShowDropdown(false);
     } catch (error) {
       console.error('Error saving file as:', error);
@@ -68,6 +69,7 @@ export default function ControlBar() {
       window.dispatchEvent(new CustomEvent('requestRegisters'));
     });
   };
+
 
   const normalizeInstruction = (raw: string): string => {
     const trimmed = raw.trim();
@@ -115,6 +117,20 @@ export default function ControlBar() {
     await new Promise(resolve => setTimeout(resolve, 50));
     const rawLines = content.split('\n');
 
+    // Reset registers and flags to initial state only on first step
+    let regs;
+    if (isFirstStepRef.current) {
+      const initialRegisters = getInitialRegisters();
+      const initialFlags = getInitialFlags();
+      setCpuFlags(initialFlags);
+      window.dispatchEvent(new CustomEvent('setRegisters', { detail: initialRegisters }));
+      window.dispatchEvent(new CustomEvent('setFlags', { detail: initialFlags }));
+      regs = initialRegisters;
+      isFirstStepRef.current = false;
+    } else {
+      regs = await getCurrentRegisters();
+    }
+
     // Advance to next non-empty line
     const totalLines = rawLines.length;
     while (currentLineRef.current < totalLines && rawLines[currentLineRef.current].trim() === '') {
@@ -131,7 +147,6 @@ export default function ControlBar() {
       return;
     }
 
-    const regs = await getCurrentRegisters();
     let result;
 
     // Use switch on mnemonic (opcode)
@@ -198,8 +213,11 @@ export default function ControlBar() {
   };
 
   const handleRun = async () => {
+    if (isRunningRef.current) return; // Prevent multiple runs
+    
     const content = await getCurrentContent();
     const labelMap = parseLabels(content);
+    
     // Block on semicolon errors
     const semiErrors = getSemicolonErrors(content);
     if (semiErrors.length > 0) {
@@ -214,90 +232,151 @@ export default function ControlBar() {
     
     const rawLines = content.split('\n');
 
-    const regs = await getCurrentRegisters();
-    let workingRegs = regs;
-    let workingFlags = cpuFlags;
+    // Reset registers and flags to initial state
+    const initialRegisters = getInitialRegisters();
+    const initialFlags = getInitialFlags();
+    setCpuFlags(initialFlags);
+    window.dispatchEvent(new CustomEvent('setRegisters', { detail: initialRegisters }));
+    window.dispatchEvent(new CustomEvent('setFlags', { detail: initialFlags }));
 
-    for (let i = 0; i < rawLines.length; i += 1) {
-      const raw = rawLines[i];
-      const normalized = normalizeInstruction(raw);
-      if (normalized.length === 0) continue;
+    // Reset position and flags
+    currentLineRef.current = 0;
+    isFirstStepRef.current = true;
+    isRunningRef.current = true;
 
-      // Highlight current line
-      window.dispatchEvent(new CustomEvent('highlightLine', { detail: i }));
+    // Auto-step through all instructions
+    const autoStep = async () => {
+      while (isRunningRef.current && currentLineRef.current < rawLines.length) {
+        // Check if we should stop
+        if (!isRunningRef.current) break;
 
-      let result;
-      // Use switch on mnemonic (opcode)
-      {
-        const opcode = normalized.split(' ')[0].toLowerCase();
-        switch (opcode) {
-          case 'mov':
-            result = executeMOV(normalized, workingRegs, workingFlags);
-            break;
-          case 'jmp':
-            result = executeJMP(normalized, workingRegs, workingFlags, labelMap);
-            if (result.jumpTo !== undefined) {
-              i = result.jumpTo - 1; // -1 because the loop will increment i
-              workingRegs = result.registers;
-              workingFlags = result.flags;
-              continue; // skip normal flow
-            }
-            break;
-          case 'jnz':
-            result = executeJNZ(normalized, workingRegs, workingFlags, labelMap);
-            if (result.jumpTo !== undefined) {
-              i = result.jumpTo - 1;
-              workingRegs = result.registers;
-              workingFlags = result.flags;
-              continue;
-            }
-            break;
-          case 'jz':
-            result = executeJZ(normalized, workingRegs, workingFlags, labelMap);
-            if (result.jumpTo !== undefined) {
-              i = result.jumpTo - 1;
-              workingRegs = result.registers;
-              workingFlags = result.flags;
-              continue;
-            }
-            break;
-          case 'jnc':
-            result = executeJNC(normalized, workingRegs, workingFlags, labelMap);
-            if (result.jumpTo !== undefined) {
-              i = result.jumpTo - 1;
-              workingRegs = result.registers;
-              workingFlags = result.flags;
-              continue;
-            }
-            break;
-          default:
-            result = executeMVI(normalized, workingRegs, workingFlags);
-            break;
+        // Advance to next non-empty line
+        while (currentLineRef.current < rawLines.length && rawLines[currentLineRef.current].trim() === '') {
+          currentLineRef.current += 1;
         }
+        
+        if (currentLineRef.current >= rawLines.length) break;
+
+        // Highlight current line
+        window.dispatchEvent(new CustomEvent('highlightLine', { detail: currentLineRef.current }));
+
+        const nextInstruction = normalizeInstruction(rawLines[currentLineRef.current]);
+        if (nextInstruction.length === 0) {
+          currentLineRef.current += 1;
+          continue;
+        }
+
+        // Get current registers (either initial or from previous step)
+        let regs;
+        if (isFirstStepRef.current) {
+          regs = initialRegisters;
+          isFirstStepRef.current = false;
+        } else {
+          regs = await getCurrentRegisters();
+        }
+
+        let result;
+        // Use switch on mnemonic (opcode)
+        {
+          const opcode = nextInstruction.split(' ')[0].toLowerCase();
+          switch (opcode) {
+            case 'mov':
+              result = executeMOV(nextInstruction, regs, cpuFlags);
+              break;
+            case 'jmp':
+              result = executeJMP(nextInstruction, regs, cpuFlags, labelMap);
+              if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                continue; // Skip incrementing line
+              }
+              break;
+            case 'jnz':
+              result = executeJNZ(nextInstruction, regs, cpuFlags, labelMap);
+              if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                continue; // Skip incrementing line
+              }
+              break;
+            case 'jz':
+              result = executeJZ(nextInstruction, regs, cpuFlags, labelMap);
+              if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                continue; // Skip incrementing line
+              }
+              break;
+            case 'jnc':
+              result = executeJNC(nextInstruction, regs, cpuFlags, labelMap);
+              if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                continue; // Skip incrementing line
+              }
+              break;
+            default:
+              result = executeMVI(nextInstruction, regs, cpuFlags);
+              break;
+          }
+        }
+
+        const { registers: newRegs, flags: newFlags } = result;
+        setCpuFlags(newFlags);
+        window.dispatchEvent(new CustomEvent('setRegisters', { detail: newRegs }));
+        window.dispatchEvent(new CustomEvent('setFlags', { detail: newFlags }));
+
+        // Move to next line
+        currentLineRef.current += 1;
+
+        // Wait 1 second before next step
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      workingRegs = result.registers;
-      workingFlags = result.flags;
+      // Clear highlight after run completes
+      window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+      // Reset step-into position and first step flag
+      currentLineRef.current = 0;
+      isFirstStepRef.current = true;
+      isRunningRef.current = false;
+    };
 
-      window.dispatchEvent(new CustomEvent('setRegisters', { detail: workingRegs }));
-      window.dispatchEvent(new CustomEvent('setFlags', { detail: workingFlags }));
-    }
-
-    setCpuFlags(workingFlags);
-    // Clear highlight after run completes
-    window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
-    // Reset step-into position
-    currentLineRef.current = 0;
+    // Start auto-stepping
+    autoStep();
   };
 
   const handleStop = () => {
+    // Stop any running process
+    isRunningRef.current = false;
+    
     currentLineRef.current = 0;
+    isFirstStepRef.current = true;
+    
+    // Reset registers and flags to initial state
+    const initialRegisters = getInitialRegisters();
+    const initialFlags = getInitialFlags();
+    setCpuFlags(initialFlags);
+    window.dispatchEvent(new CustomEvent('setRegisters', { detail: initialRegisters }));
+    window.dispatchEvent(new CustomEvent('setFlags', { detail: initialFlags }));
+    
     window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
     window.dispatchEvent(new CustomEvent('clearErrors'));
   };
 
   return (
-    <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative">
+    <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative z-15">
       {/* File Menu */}
       <div className="relative">
         <button
