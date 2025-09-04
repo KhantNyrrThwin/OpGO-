@@ -57,41 +57,73 @@ export default function InstructionInput() {
 
   // Full validation function for run button
   const validateInstructions = (text: string): ValidationError[] => {
-    const validationErrors: ValidationError[] = [];
-    const instructionLines = text.split('\n');
-    
-    instructionLines.forEach((line, index) => {
-      const trimmedLine = line.trim();
-      
-      // Skip empty lines
-      if (trimmedLine === '') return;
-      
-      // Check for semicolon
-      if (!trimmedLine.endsWith(';')) {
+  const validationErrors: ValidationError[] = [];
+  const instructionLines = text.split('\n');
+
+  instructionLines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+
+    // Skip empty lines
+    if (trimmedLine === '') return;
+
+    // Split label if present
+    const labelSplit = trimmedLine.split(':');
+    let instructionPart = trimmedLine;
+
+    if (labelSplit.length === 2) {
+      const label = labelSplit[0].trim();
+      const labelValid = /^[a-z_][a-z0-9_]*$/i.test(label);
+      if (!labelValid) {
         validationErrors.push({
           line: index,
-          message: `Line ${index + 1}: Instruction must end with semicolon (;)`,
-          type: 'semicolon'
+          message: `Line ${index + 1}: Invalid label name "${label}"`,
+          type: 'syntax'
         });
       }
+
+      instructionPart = labelSplit[1].trim();
+      if (instructionPart === '') {
+        validationErrors.push({
+          line: index,
+          message: `Line ${index + 1}: Label must be followed by an instruction`,
+          type: 'syntax'
+        });
+        return;
+      }
+    } else if (labelSplit.length > 2) {
+      validationErrors.push({
+        line: index,
+        message: `Line ${index + 1}: Multiple colons found. Only one label allowed per line.`,
+        type: 'syntax'
+      });
+      return;
+    }
+
+    // Check for semicolon
+    if (!instructionPart.endsWith(';')) {
+      validationErrors.push({
+        line: index,
+        message: `Line ${index + 1}: Instruction must end with semicolon (;)`,
+        type: 'semicolon'
+      });
+    }
       
-      // Check for valid instruction format
-      const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi'];
-      
-      if (instruction.length > 0) {
-        const instructionType = instruction.split(' ')[0];
-        if (!validInstructions.includes(instructionType)) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI`,
-            type: 'invalid_instruction'
-          });
-        }
+      // Remove semicolon and normalize instruction
+      const instruction = instructionPart.replace(/;$/, '').trim().toLowerCase();
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc'];
+      const instructionType = instruction.split(' ')[0];
+
+      if (!validInstructions.includes(instructionType)) {
+        validationErrors.push({
+          line: index,
+          message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, JMP`,
+          type: 'invalid_instruction'
+        });
+      }
         
         // Check MOV instruction format
         if (instructionType === 'mov') {
-          const parts = instruction.split(' ');
+          const parts = instruction.split(/[\s,]+/);
           if (parts.length !== 3) {
             validationErrors.push({
               line: index,
@@ -112,8 +144,32 @@ export default function InstructionInput() {
             });
           }
         }
+
+        // JMP format check
+        if (instructionType === 'jmp') {
+          const jmpPattern = /^jmp\s+[a-z_][a-z0-9_]*$/i;
+          if (!jmpPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: JMP must be followed by a valid label (e.g., JMP LOOP)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // JNZ format check
+        if (instructionType === 'jnz') {
+          const jnzPattern = /^jnz\s+[a-z_][a-z0-9_]*$/i;
+          if (!jnzPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: JNZ must be followed by a valid label (e.g., JNZ LOOP)`,
+              type: 'syntax'
+            });
+          }
+        }
       }
-    });
+    );
     
     return validationErrors;
   };

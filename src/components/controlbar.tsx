@@ -3,6 +3,11 @@ import { FolderIcon, PlayIcon } from '@heroicons/react/24/solid';
 import { useFileContext } from '../contexts/FileContext';
 import { executeMVI } from '../functions/mvi';
 import { executeMOV } from '../functions/mov';
+import { executeJMP } from '../functions/jmp';
+import { executeJNZ } from '../functions/jnz';
+import { executeJZ } from '../functions/jz';
+import { executeJNC } from '../functions/jnc';
+import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
 export default function ControlBar() {
@@ -68,7 +73,12 @@ export default function ControlBar() {
     const trimmed = raw.trim();
     // Remove trailing semicolon if present, then collapse whitespace
     const noSemi = trimmed.endsWith(';') ? trimmed.slice(0, -1) : trimmed;
-    return noSemi.replace(/\s+/g, ' ').trim();
+    
+    // Remove inline label if present
+    const labelSplit = noSemi.split(':');
+    const instructionOnly = labelSplit.length === 2 ? labelSplit[1] : noSemi;
+
+    return instructionOnly.replace(/\s+/g, ' ').trim();
   };
 
   const getSemicolonErrors = (content: string) => {
@@ -90,6 +100,8 @@ export default function ControlBar() {
 
   const stepInto = async () => {
     const content = await getCurrentContent();
+    const labelMap = parseLabels(content);
+    
     // Block on semicolon errors
     const semiErrors = getSemicolonErrors(content);
     if (semiErrors.length > 0) {
@@ -129,6 +141,46 @@ export default function ControlBar() {
         case 'mov':
           result = executeMOV(nextInstruction, regs, cpuFlags);
           break;
+        case 'jmp':
+            result = executeJMP(nextInstruction, regs, cpuFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+              currentLineRef.current = result.jumpTo;
+              setCpuFlags(result.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+              return; // Skip incrementing line
+            }
+            break;
+        case 'jnz':
+            result = executeJNZ(nextInstruction, regs, cpuFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+              currentLineRef.current = result.jumpTo;
+              setCpuFlags(result.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+              return; // Skip incrementing line
+            }
+            break;
+        case 'jz':
+            result = executeJZ(nextInstruction, regs, cpuFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+              currentLineRef.current = result.jumpTo;
+              setCpuFlags(result.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+              return; // Skip incrementing line
+            }
+            break;
+        case 'jnc':
+            result = executeJNC(nextInstruction, regs, cpuFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+              currentLineRef.current = result.jumpTo;
+              setCpuFlags(result.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+              return; // Skip incrementing line
+            }
+            break;
         default:
           result = executeMVI(nextInstruction, regs, cpuFlags);
           break;
@@ -147,6 +199,7 @@ export default function ControlBar() {
 
   const handleRun = async () => {
     const content = await getCurrentContent();
+    const labelMap = parseLabels(content);
     // Block on semicolon errors
     const semiErrors = getSemicolonErrors(content);
     if (semiErrors.length > 0) {
@@ -180,6 +233,42 @@ export default function ControlBar() {
         switch (opcode) {
           case 'mov':
             result = executeMOV(normalized, workingRegs, workingFlags);
+            break;
+          case 'jmp':
+            result = executeJMP(normalized, workingRegs, workingFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+              i = result.jumpTo - 1; // -1 because the loop will increment i
+              workingRegs = result.registers;
+              workingFlags = result.flags;
+              continue; // skip normal flow
+            }
+            break;
+          case 'jnz':
+            result = executeJNZ(normalized, workingRegs, workingFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+              i = result.jumpTo - 1;
+              workingRegs = result.registers;
+              workingFlags = result.flags;
+              continue;
+            }
+            break;
+          case 'jz':
+            result = executeJZ(normalized, workingRegs, workingFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+              i = result.jumpTo - 1;
+              workingRegs = result.registers;
+              workingFlags = result.flags;
+              continue;
+            }
+            break;
+          case 'jnc':
+            result = executeJNC(normalized, workingRegs, workingFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+              i = result.jumpTo - 1;
+              workingRegs = result.registers;
+              workingFlags = result.flags;
+              continue;
+            }
             break;
           default:
             result = executeMVI(normalized, workingRegs, workingFlags);

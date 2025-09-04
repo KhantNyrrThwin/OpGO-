@@ -3,7 +3,6 @@ import FlagsTitle from "../assets/Flag Title.png"
 import Active from "../assets/Active.png"
 import Unactive from "../assets/Unactive.png"
 
-
 export default function Flags(){
     const [zeroFlag] = useState(0)
     const [signFlag] = useState(0)
