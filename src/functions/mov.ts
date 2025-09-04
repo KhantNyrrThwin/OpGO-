@@ -18,10 +18,10 @@
  * 5. MOV rp, data16 - Move immediate 16-bit data to register pair
  *    Example: MOV HL, 2000 (loads immediate value 2000 into HL register pair)
  * 
- * All MOV instructions do NOT affect the processor flags (Z, S, C).
+ * MOV instructions now affect the processor flags (Z, S) based on the moved value.
  */
 
-import { type Registers, type Flags, getRegisterByte, setRegisterByte, setRegisterPair } from './types';
+import { type Registers, type Flags, getRegisterByte, setRegisterByte, setRegisterPair, computeFlagsFromByte } from './types';
 
 // MOV r1, r2 - Move from register to register
 export function executeMOV_RR(instruction: string, registers: Registers, flags: Flags): { registers: Registers; flags: Flags } {
@@ -37,8 +37,12 @@ export function executeMOV_RR(instruction: string, registers: Registers, flags: 
 	const srcValue = getRegisterByte(registers, srcReg);
 	const newRegisters = setRegisterByte(registers, destReg, srcValue);
 
-	// MOV doesn't affect flags
-	return { registers: newRegisters, flags };
+	// Set flags based on the moved value (zero flag when value is 00)
+	const newFlags = computeFlagsFromByte(
+		((srcValue >> 4) & 0x0F).toString(16).toUpperCase(),
+		(srcValue & 0x0F).toString(16).toUpperCase()
+	);
+	return { registers: newRegisters, flags: newFlags };
 }
 
 // MOV r, M - Move from memory to register (using HL as address)
@@ -57,8 +61,12 @@ export function executeMOV_RM(instruction: string, registers: Registers, flags: 
 	
 	const newRegisters = setRegisterByte(registers, destReg, memoryValue);
 
-	// MOV doesn't affect flags
-	return { registers: newRegisters, flags };
+	// Set flags based on the loaded value (zero flag when value is 00)
+	const newFlags = computeFlagsFromByte(
+		((memoryValue >> 4) & 0x0F).toString(16).toUpperCase(),
+		(memoryValue & 0x0F).toString(16).toUpperCase()
+	);
+	return { registers: newRegisters, flags: newFlags };
 }
 
 // MOV M, r - Move from register to memory (using HL as address)
@@ -92,8 +100,9 @@ export function executeMOV_RD(instruction: string, registers: Registers, flags: 
 	const newRegisters: Registers = { ...registers };
 	newRegisters[destReg] = [upper, lower];
 
-	// MOV doesn't affect flags
-	return { registers: newRegisters, flags };
+	// Set flags based on the immediate data (zero flag when data is 00)
+	const newFlags = computeFlagsFromByte(upper, lower);
+	return { registers: newRegisters, flags: newFlags };
 }
 
 // MOV rp, data16 - Move 16-bit immediate data to register pair
@@ -126,8 +135,14 @@ export function executeMOV_RP_D16(instruction: string, registers: Registers, fla
 			break;
 	}
 
-	// MOV doesn't affect flags
-	return { registers: newRegisters, flags };
+	// Set flags based on the 16-bit value (zero flag when value is 0000)
+	const isZero = (highByte === 0 && lowByte === 0);
+	const newFlags = {
+		zero: isZero ? 1 : 0,
+		sign: (highByte & 0x80) !== 0 ? 1 : 0, // Sign based on high byte
+		carry: 0,
+	};
+	return { registers: newRegisters, flags: newFlags };
 }
 
 // Main MOV function that determines which specific MOV operation to execute

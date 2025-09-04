@@ -53,75 +53,124 @@ export default function InstructionInput() {
     };
   }, [instructions]);
 
-  // Removed immediate semicolon validation; semicolons are validated on Run/Step
-
   // Full validation function for run button
   const validateInstructions = (text: string): ValidationError[] => {
     const validationErrors: ValidationError[] = [];
     const instructionLines = text.split('\n');
-    
+
     instructionLines.forEach((line, index) => {
       const trimmedLine = line.trim();
-      
+
       // Skip empty lines
       if (trimmedLine === '') return;
-      
+
+      // Skip comment lines
+      if (trimmedLine.startsWith('//')) return;
+
+      // Split label if present
+      const labelSplit = trimmedLine.split(':');
+      let instructionPart = trimmedLine;
+
+      if (labelSplit.length === 2) {
+        const label = labelSplit[0].trim();
+        const labelValid = /^[a-z_][a-z0-9_]*$/i.test(label);
+        if (!labelValid) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: Invalid label name "${label}"`,
+            type: 'syntax'
+          });
+        }
+
+        instructionPart = labelSplit[1].trim();
+        if (instructionPart === '') {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: Label must be followed by an instruction`,
+            type: 'syntax'
+          });
+          return;
+        }
+      } else if (labelSplit.length > 2) {
+        validationErrors.push({
+          line: index,
+          message: `Line ${index + 1}: Multiple colons found. Only one label allowed per line.`,
+          type: 'syntax'
+        });
+        return;
+      }
+
       // Check for semicolon
-      if (!trimmedLine.endsWith(';')) {
+      if (!instructionPart.endsWith(';')) {
         validationErrors.push({
           line: index,
           message: `Line ${index + 1}: Instruction must end with semicolon (;)`,
           type: 'semicolon'
         });
       }
-      
-      // Check for valid instruction format
-      const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi'];
-      
-      if (instruction.length > 0) {
-        const instructionType = instruction.split(' ')[0];
-        if (!validInstructions.includes(instructionType)) {
+
+      const instruction = instructionPart.replace(/;$/, '').trim().toLowerCase();
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc'];
+      const instructionType = instruction.split(' ')[0];
+
+      if (!validInstructions.includes(instructionType)) {
+        validationErrors.push({
+          line: index,
+          message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, JMP`,
+          type: 'invalid_instruction'
+        });
+      }
+
+      if (instructionType === 'mov') {
+        const parts = instruction.split(/[\s,]+/);
+        if (parts.length !== 3) {
           validationErrors.push({
             line: index,
-            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI`,
-            type: 'invalid_instruction'
+            message: `Line ${index + 1}: MOV instruction requires 2 operands (e.g., MOV A,B)`,
+            type: 'syntax'
           });
         }
-        
-        // Check MOV instruction format
-        if (instructionType === 'mov') {
-          const parts = instruction.split(' ');
-          if (parts.length !== 3) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MOV instruction requires 2 operands (e.g., MOV A,B)`,
-              type: 'syntax'
-            });
-          }
+      }
+
+      if (instructionType === 'mvi') {
+        const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
+        if (!mviPattern.test(instruction)) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: MVI immediate must be two hex digits followed by 'H' (e.g., MVI A,05H)`,
+            type: 'syntax'
+          });
         }
-        
-        // Check MVI instruction format (require two hex digits followed by 'H')
-        if (instructionType === 'mvi') {
-          const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
-          if (!mviPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MVI immediate must be two hex digits followed by 'H' (e.g., MVI A,05H)`,
-              type: 'syntax'
-            });
-          }
+      }
+
+      if (instructionType === 'jmp') {
+        const jmpPattern = /^jmp\s+[a-z_][a-z0-9_]*$/i;
+        if (!jmpPattern.test(instruction)) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JMP must be followed by a valid label (e.g., JMP LOOP)`,
+            type: 'syntax'
+          });
+        }
+      }
+
+      if (instructionType === 'jnz') {
+        const jnzPattern = /^jnz\s+[a-z_][a-z0-9_]*$/i;
+        if (!jnzPattern.test(instruction)) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JNZ must be followed by a valid label (e.g., JNZ LOOP)`,
+            type: 'syntax'
+          });
         }
       }
     });
-    
+
     return validationErrors;
   };
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
+    if (textareaRef.current) textareaRef.current.focus();
   }, []);
 
   useEffect(() => {
@@ -137,14 +186,12 @@ export default function InstructionInput() {
     const handleHighlightLine = (event: CustomEvent) => {
       const index = event.detail as number;
       setHighlightedLine(index);
-      // Auto-scroll the textarea to make the line visible
       if (textareaRef.current && index >= 0) {
         const linesUpToIndex = instructions.split('\n').slice(0, index).join('\n');
         const approxCharIndex = linesUpToIndex.length + 1;
-        // Move caret to target line start for scrollIntoView behavior
         textareaRef.current.selectionStart = approxCharIndex;
         textareaRef.current.selectionEnd = approxCharIndex;
-        textareaRef.current.scrollTop = textareaRef.current.scrollTop + 0; // force layout
+        textareaRef.current.scrollTop = textareaRef.current.scrollTop + 0;
       }
     };
 
@@ -166,13 +213,11 @@ export default function InstructionInput() {
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
 
-      const indent = '  '; 
-      const updatedValue =
-        instructions.substring(0, start) + indent + instructions.substring(end);
+      const indent = '  ';
+      const updatedValue = instructions.substring(0, start) + indent + instructions.substring(end);
 
       setInstructions(updatedValue);
 
-      
       setTimeout(() => {
         textarea.selectionStart = textarea.selectionEnd = start + indent.length;
       }, 0);
@@ -201,27 +246,30 @@ export default function InstructionInput() {
               <Alert key={index} variant="destructive" className="text-sm">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="text-red-400">
-                  {error.type === 'semicolon' ? 'Missing Semicolon' : 
-                   error.type === 'syntax' ? 'Syntax Error' : 'Invalid Instruction'}
+                  {error.type === 'semicolon'
+                    ? 'Missing Semicolon'
+                    : error.type === 'syntax'
+                    ? 'Syntax Error'
+                    : 'Invalid Instruction'}
                 </AlertTitle>
-                <AlertDescription className="text-red-300">
-                  {error.message}
-                </AlertDescription>
+                <AlertDescription className="text-red-300">{error.message}</AlertDescription>
               </Alert>
             ))}
           </div>
         </div>
       )}
-      
+
       <div className="flex flex-row flex-1">
-        
+        {/* Line Numbers */}
         <div className="bg-[#1f1f1f] text-gray-400 px-2 py-2 text-right select-none flex-shrink-0">
           {lines.map((_, index) => {
             const isActive = index === highlightedLine;
             return (
               <div
                 key={index}
-                className={`leading-[3rem] ${isActive ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : ''}`}
+                className={`leading-[3rem] ${
+                  isActive ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : ''
+                }`}
               >
                 {index + 1}
               </div>
@@ -229,34 +277,45 @@ export default function InstructionInput() {
           })}
         </div>
 
-        
-        <div className="flex-grow relative">
+        {/* Code Editor */}
+        <div className="flex-grow relative font-mono">
+          {/* Highlighted code overlay */}
+          <pre
+            className="absolute top-0 left-0 w-full h-full p-2 pointer-events-none whitespace-pre leading-[3rem]"
+            style={{ color: 'transparent' }}
+          >
+            {lines.map((line, index) => {
+              const isComment = line.trim().startsWith('//');
+              const isActive = index === highlightedLine;
+              return (
+                <div
+                  key={index}
+                  className={`${isActive ? 'bg-blue-500/20' : ''}`}
+                  style={{ color: isComment ? '#00ff00' : 'white' }}
+                >
+                  {line || ' '}
+                </div>
+              );
+            })}
+          </pre>
+
+          {/* Actual textarea */}
           <textarea
             ref={textareaRef}
             spellCheck={false}
             autoCorrect="off"
             autoCapitalize="off"
             value={instructions}
-                      onChange={(e) => {
-            const newInstructions = e.target.value;
-            setInstructions(newInstructions);
-            setHasUnsavedChanges(true);
-          }}
+            onChange={(e) => {
+              const newInstructions = e.target.value;
+              setInstructions(newInstructions);
+              setHasUnsavedChanges(true);
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Type your instructions here."
-            className="w-full h-full bg-transparent p-2 resize-none outline-none leading-[3rem] whitespace-pre relative z-10"
-            style={{ lineHeight: '3rem' }}
+            className="w-full h-full bg-transparent p-2 resize-none outline-none relative z-10 leading-[3rem] whitespace-pre"
+            style={{ lineHeight: '3rem', color: 'white' }}
           />
-          {/* Highlight overlay for current line */}
-          {highlightedLine >= 0 && (
-            <div 
-              className="absolute left-2 right-2 bg-blue-500/20 border-l-4 border-blue-500 z-0"
-              style={{ 
-                top: `calc(${highlightedLine * 3}rem + 0.5rem)`, 
-                height: '3rem' 
-              }}
-            />
-          )}
         </div>
       </div>
     </div>

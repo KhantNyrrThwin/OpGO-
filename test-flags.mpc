@@ -1,0 +1,25 @@
+; Test file for flag and register animations
+; Demonstrates unified GSAP animations
+
+; Test zero flag changes (will animate ZERO flag)
+MVI A, 00H;
+MVI B, 3FH;
+
+; Test sign flag changes (will animate SIGN flag)  
+MVI E, 80H;
+MVI H, 40H;
+
+; Test register changes - these should trigger register animations
+MOV B, A;      ; Animates register B
+MOV C, B;      ; Animates register C
+MOV D, C;      ; Animates register D
+MOV E, D;      ; Animates register E
+
+; Test immediate value loading to registers - these should also animate
+MVI A, 5AH;    ; Animates register A
+MVI B, 3FH;    ; Animates register B
+MVI C, 7BH;    ; Animates register C
+MVI D, 9CH;    ; Animates register D
+MVI E, 2DH;    ; Animates register E
+MVI H, 8EH;    ; Animates register H
+MVI L, 1FH;    ; Animates register L
