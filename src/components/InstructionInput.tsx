@@ -101,13 +101,13 @@ export default function InstructionInput() {
           }
         }
         
-        // Check MVI instruction format
+        // Check MVI instruction format (require two hex digits followed by 'H')
         if (instructionType === 'mvi') {
-          const parts = instruction.split(' ');
-          if (parts.length !== 3) {
+          const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
+          if (!mviPattern.test(instruction)) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: MVI instruction requires 2 operands (e.g., MVI A,05H)`,
+              message: `Line ${index + 1}: MVI immediate must be two hex digits followed by 'H' (e.g., MVI A,05H)`,
               type: 'syntax'
             });
           }
