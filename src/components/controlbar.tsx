@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { FolderIcon, PlayIcon} from '@heroicons/react/24/solid';
+import { FolderIcon, PlayIcon } from '@heroicons/react/24/solid';
 import { useFileContext } from '../contexts/FileContext';
 import { executeMVI } from '../functions/mvi';
 import { executeMOV } from '../functions/mov';
@@ -122,10 +122,17 @@ export default function ControlBar() {
     const regs = await getCurrentRegisters();
     let result;
 
-    if (nextInstruction.toLowerCase().startsWith('mov')) {
-      result = executeMOV(nextInstruction, regs, cpuFlags);
-    } else {
-      result = executeMVI(nextInstruction, regs, cpuFlags);
+    // Use switch on mnemonic (opcode)
+    {
+      const opcode = nextInstruction.split(' ')[0].toLowerCase();
+      switch (opcode) {
+        case 'mov':
+          result = executeMOV(nextInstruction, regs, cpuFlags);
+          break;
+        default:
+          result = executeMVI(nextInstruction, regs, cpuFlags);
+          break;
+      }
     }
 
     const { registers: newRegs, flags: newFlags } = result;
@@ -167,16 +174,22 @@ export default function ControlBar() {
       window.dispatchEvent(new CustomEvent('highlightLine', { detail: i }));
 
       let result;
-      if (normalized.toLowerCase().startsWith('mov')) {
-        result = executeMOV(normalized, workingRegs, workingFlags);
-      } else {
-        result = executeMVI(normalized, workingRegs, workingFlags);
+      // Use switch on mnemonic (opcode)
+      {
+        const opcode = normalized.split(' ')[0].toLowerCase();
+        switch (opcode) {
+          case 'mov':
+            result = executeMOV(normalized, workingRegs, workingFlags);
+            break;
+          default:
+            result = executeMVI(normalized, workingRegs, workingFlags);
+            break;
+        }
       }
 
       workingRegs = result.registers;
       workingFlags = result.flags;
 
-      // Update UI after each instruction
       window.dispatchEvent(new CustomEvent('setRegisters', { detail: workingRegs }));
       window.dispatchEvent(new CustomEvent('setFlags', { detail: workingFlags }));
     }
@@ -251,10 +264,7 @@ export default function ControlBar() {
           <PlayIcon className="h-4.5 w-4.5 text-white" />
         </button>
 
-        {/* Neon BUTTONS Label */}
-        <div className="bg-blue-600 px-4 py-1 rounded text-[#39ff14] font-bold">
-          BUTTONS
-        </div>
+        
       </div>
     </div>
   );
