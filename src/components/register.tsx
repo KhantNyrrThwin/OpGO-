@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import RegTitle from "../assets/Register Title.png"
-import type { Registers as RegistersType } from "../functions/functions";
+import type { Registers as RegistersType } from "../functions/types";
 
 
 interface RegisterData {

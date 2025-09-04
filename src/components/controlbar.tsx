@@ -1,49 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
-import { FolderIcon, PlayIcon } from '@heroicons/react/24/solid';
+import { useRef, useState } from 'react';
+import { FolderIcon, PlayIcon} from '@heroicons/react/24/solid';
 import { useFileContext } from '../contexts/FileContext';
-import { executeMVI, getInitialFlags, type Registers as RegistersType, type Flags as FlagsType } from '../functions/functions';
+import { executeMVI } from '../functions/mvi';
+import { executeMOV } from '../functions/mov';
+import { getInitialFlags, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
 export default function ControlBar() {
   const [showDropdown, setShowDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const {
-    fileName,
-    hasUnsavedChanges,
-    openFile,
-    saveFile,
-    saveAsFile,
-    resetFileName, // ✅ Import from context
-  } = useFileContext();
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [fileName]);
-
-  const handleNewFile = () => {
-    resetFileName(); // ✅ Update filename in context
-    window.dispatchEvent(new CustomEvent('newFile')); // ✅ Clear editor via event
-    setShowDropdown(false);
-  };
+  const { fileName, hasUnsavedChanges, openFile, saveFile, saveAsFile } = useFileContext();
 
   const [cpuFlags, setCpuFlags] = useState<FlagsType>(getInitialFlags());
+  const currentLineRef = useRef<number>(0);
 
   const handleOpen = async () => {
     try {
@@ -58,13 +25,7 @@ export default function ControlBar() {
   const handleSave = async () => {
     try {
       const content = await getCurrentContent();
-
-      let finalFileName = fileName;
-      if (!finalFileName.endsWith('.mpc')) {
-        finalFileName += '.mpc';
-      }
-
-      await saveFile(content, finalFileName);
+      await saveFile(content);
       setShowDropdown(false);
     } catch (error) {
       console.error('Error saving file:', error);
@@ -103,50 +64,170 @@ export default function ControlBar() {
     });
   };
 
+  const normalizeInstruction = (raw: string): string => {
+    const trimmed = raw.trim();
+    // Remove trailing semicolon if present, then collapse whitespace
+    const noSemi = trimmed.endsWith(';') ? trimmed.slice(0, -1) : trimmed;
+    return noSemi.replace(/\s+/g, ' ').trim();
+  };
+
+  const getSemicolonErrors = (content: string) => {
+    const errors: Array<{ line: number; message: string; type: 'semicolon' }> = [];
+    const lines = content.split('\n');
+    for (let i = 0; i < lines.length; i += 1) {
+      const trimmed = lines[i].trim();
+      if (trimmed === '') continue;
+      if (!trimmed.endsWith(';')) {
+        errors.push({
+          line: i,
+          message: `Line ${i + 1}: Instruction must end with semicolon (;)`,
+          type: 'semicolon',
+        });
+      }
+    }
+    return errors;
+  };
+
   const stepInto = async () => {
     const content = await getCurrentContent();
-    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length === 0) return;
+    // Block on semicolon errors
+    const semiErrors = getSemicolonErrors(content);
+    if (semiErrors.length > 0) {
+      window.dispatchEvent(new CustomEvent('externalErrors', { detail: semiErrors }));
+      window.dispatchEvent(new CustomEvent('highlightLine', { detail: semiErrors[0].line }));
+      return;
+    }
 
-    const nextInstruction = lines[0];
+    // Validate all other errors (will show UI but not block here beyond semicolons)
+    window.dispatchEvent(new CustomEvent('validateInstructions'));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const rawLines = content.split('\n');
+
+    // Advance to next non-empty line
+    const totalLines = rawLines.length;
+    while (currentLineRef.current < totalLines && rawLines[currentLineRef.current].trim() === '') {
+      currentLineRef.current += 1;
+    }
+    if (currentLineRef.current >= totalLines) return;
+
+    // Indicate which line is running (0-based index)
+    window.dispatchEvent(new CustomEvent('highlightLine', { detail: currentLineRef.current }));
+
+    const nextInstruction = normalizeInstruction(rawLines[currentLineRef.current]);
+    if (nextInstruction.length === 0) {
+      currentLineRef.current += 1;
+      return;
+    }
 
     const regs = await getCurrentRegisters();
-    const { registers: newRegs, flags: newFlags } = executeMVI(nextInstruction, regs, cpuFlags);
+    let result;
 
+    if (nextInstruction.toLowerCase().startsWith('mov')) {
+      result = executeMOV(nextInstruction, regs, cpuFlags);
+    } else {
+      result = executeMVI(nextInstruction, regs, cpuFlags);
+    }
+
+    const { registers: newRegs, flags: newFlags } = result;
     setCpuFlags(newFlags);
 
     window.dispatchEvent(new CustomEvent('setRegisters', { detail: newRegs }));
     window.dispatchEvent(new CustomEvent('setFlags', { detail: newFlags }));
+
+    // Move to next line for subsequent clicks
+    currentLineRef.current += 1;
+  };
+
+  const handleRun = async () => {
+    const content = await getCurrentContent();
+    // Block on semicolon errors
+    const semiErrors = getSemicolonErrors(content);
+    if (semiErrors.length > 0) {
+      window.dispatchEvent(new CustomEvent('externalErrors', { detail: semiErrors }));
+      window.dispatchEvent(new CustomEvent('highlightLine', { detail: semiErrors[0].line }));
+      return;
+    }
+
+    // Validate all other errors (display-only) before running
+    window.dispatchEvent(new CustomEvent('validateInstructions'));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    const rawLines = content.split('\n');
+
+    const regs = await getCurrentRegisters();
+    let workingRegs = regs;
+    let workingFlags = cpuFlags;
+
+    for (let i = 0; i < rawLines.length; i += 1) {
+      const raw = rawLines[i];
+      const normalized = normalizeInstruction(raw);
+      if (normalized.length === 0) continue;
+
+      // Highlight current line
+      window.dispatchEvent(new CustomEvent('highlightLine', { detail: i }));
+
+      let result;
+      if (normalized.toLowerCase().startsWith('mov')) {
+        result = executeMOV(normalized, workingRegs, workingFlags);
+      } else {
+        result = executeMVI(normalized, workingRegs, workingFlags);
+      }
+
+      workingRegs = result.registers;
+      workingFlags = result.flags;
+
+      // Update UI after each instruction
+      window.dispatchEvent(new CustomEvent('setRegisters', { detail: workingRegs }));
+      window.dispatchEvent(new CustomEvent('setFlags', { detail: workingFlags }));
+    }
+
+    setCpuFlags(workingFlags);
+    // Clear highlight after run completes
+    window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+    // Reset step-into position
+    currentLineRef.current = 0;
+  };
+
+  const handleStop = () => {
+    currentLineRef.current = 0;
+    window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+    window.dispatchEvent(new CustomEvent('clearErrors'));
   };
 
   return (
     <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative">
       {/* File Menu */}
-      <div className="relative" ref={dropdownRef}>
+      <div className="relative">
         <button
           onClick={() => setShowDropdown(!showDropdown)}
           className="flex items-center gap-2 hover:text-green-400"
         >
-          <div className="file-display flex items-center gap-2">
-            <FolderIcon className="text-yellow-500 h-8 w-8 cursor-pointer" />
-            <span className="text-black font-semibold">{fileName}</span>
-          </div>
+          <FolderIcon className="text-yellow-500 h-8 w-8 cursor-pointer" />
+          <span className="text-black font-semibold">
+            {fileName}{hasUnsavedChanges ? ' *' : ''}
+          </span>
         </button>
 
         {showDropdown && (
           <div className="absolute top-8 left-0 bg-[#3a3a3a] border border-gray-600 rounded shadow-lg z-10">
             <ul className="flex flex-col text-left">
-              <li className="px-15 py-4 hover:bg-green-700 cursor-pointer" onClick={handleNewFile}>
-                New File
+              <li 
+                className="px-10 py-4 hover:bg-green-700 cursor-pointer"
+                onClick={handleOpen}
+              >
+                Open (.mpc)
               </li>
-              <li className="px-15 py-4 hover:bg-green-700 cursor-pointer" onClick={handleOpen}>
-                Open
-              </li>
-              <li className="px-15 py-4 hover:bg-green-700 cursor-pointer" onClick={handleSave}>
+              <li 
+                className="px-10 py-4 hover:bg-green-700 cursor-pointer"
+                onClick={handleSave}
+              >
                 Save
               </li>
-              <li className="px-15 py-4 hover:bg-green-700 cursor-pointer" onClick={handleSaveAs}>
-                Save As
+              <li 
+                className="px-8 py-4 hover:bg-green-700 cursor-pointer"
+                onClick={handleSaveAs}
+              >
+                Save As (.mpc)
               </li>
             </ul>
           </div>
@@ -155,19 +236,22 @@ export default function ControlBar() {
 
       {/* Action Buttons Styled Like Image */}
       <div className="flex items-center gap-4">
-        <button className="bg-red-600 hover:bg-red-700 rounded-full p-2 flex items-center justify-center cursor-pointer">
-          <div className="bg-white w-4 h-4" />
+        {/* Stop Button */}
+        <button className="bg-red-600 hover:bg-red-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleStop}>
+          <div className="bg-white w-3.5 h-3.5" />
         </button>
 
+        {/* Step Into Button */}
         <button className="bg-[#add8e6] hover:bg-[#9ccbe0] text-black border border-black px-4 py-1 rounded cursor-pointer" onClick={stepInto}>
-
           Step Into
         </button>
 
-        <button className="bg-blue-600 hover:bg-blue-700 rounded-full p-2 flex items-center justify-center cursor-pointer">
-          <PlayIcon className="h-5 w-5 text-white" />
+        {/* Run Button */}
+        <button className="bg-blue-600 hover:bg-blue-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleRun}>
+          <PlayIcon className="h-4.5 w-4.5 text-white" />
         </button>
 
+        {/* Neon BUTTONS Label */}
         <div className="bg-blue-600 px-4 py-1 rounded text-[#39ff14] font-bold">
           BUTTONS
         </div>
