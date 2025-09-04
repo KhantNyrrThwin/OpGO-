@@ -7,14 +7,18 @@ interface FileNameDialogProps {
   onCancel: () => void;
 }
 
-export default function FileNameDialog({ isOpen, currentFileName, onSave, onCancel }: FileNameDialogProps) {
+export default function FileNameDialog({
+  isOpen,
+  currentFileName,
+  onSave,
+  onCancel,
+}: FileNameDialogProps) {
   const [fileName, setFileName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setFileName(currentFileName.replace('.mpc', ''));
-      // Focus the input after a short delay to ensure it's rendered
       setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
@@ -24,8 +28,9 @@ export default function FileNameDialog({ isOpen, currentFileName, onSave, onCanc
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (fileName.trim()) {
-      const finalFileName = fileName.trim().endsWith('.mpc') ? fileName.trim() : `${fileName.trim()}.mpc`;
+    const trimmed = fileName.trim();
+    if (trimmed) {
+      const finalFileName = trimmed.endsWith('.mpc') ? trimmed : `${trimmed}.mpc`;
       onSave(finalFileName);
     }
   };

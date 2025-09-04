@@ -13,6 +13,7 @@ interface FileContextType {
   saveFile: (content: string) => Promise<void>;
   saveAsFile: (content: string) => Promise<void>;
   handleSaveWithName: (fileName: string, content: string) => Promise<void>;
+  resetFileName: () => void; // 
 }
 
 const FileContext = createContext<FileContextType | undefined>(undefined);
@@ -29,18 +30,13 @@ interface FileProviderProps {
   children: ReactNode;
 }
 
-// Function to format content for 8085 simulator compatibility
+// ✅ Format content for 8085 simulator compatibility
 const formatContentFor8085 = (content: string): string => {
-  // Ensure proper line endings and remove any extra whitespace
   const lines = content.split('\n');
   const formattedLines = lines.map(line => line.trimEnd());
-  
-  // Remove empty lines at the end
   while (formattedLines.length > 0 && formattedLines[formattedLines.length - 1] === '') {
     formattedLines.pop();
   }
-  
-  // Join with proper line endings
   return formattedLines.join('\r\n');
 };
 
@@ -50,6 +46,12 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showFileNameDialog, setShowFileNameDialog] = useState(false);
   const [pendingContent, setPendingContent] = useState<string>('');
+
+  const resetFileName = () => {
+    setFileName('untitled.mpc'); // or 'untitled.mpc' if preferred
+    setFilePath(null);
+    setHasUnsavedChanges(false);
+  };
 
   const openFile = async (): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -62,7 +64,6 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
           const reader = new FileReader();
           reader.onload = (e) => {
             const content = e.target?.result as string;
-            // Normalize line endings for display
             const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
             setFileName(file.name);
             setFilePath(file.name);
@@ -81,7 +82,6 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
 
   const saveFile = async (content: string): Promise<void> => {
     if (filePath && fileName !== 'Untitled.mpc') {
-      // For existing files, we'll trigger a download since we can't directly write to the file system
       const formattedContent = formatContentFor8085(content);
       const blob = new Blob([formattedContent], { type: 'text/plain; charset=utf-8' });
       const url = URL.createObjectURL(blob);
@@ -94,7 +94,6 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
       URL.revokeObjectURL(url);
       setHasUnsavedChanges(false);
     } else {
-      // If no file path or untitled file, treat as save as
       await saveAsFile(content);
     }
   };
@@ -115,8 +114,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
-    // Update the current file name and path
+
     setFileName(finalFileName);
     setFilePath(finalFileName);
     setHasUnsavedChanges(false);
@@ -136,6 +134,7 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
     saveFile,
     saveAsFile,
     handleSaveWithName,
+    resetFileName, // 
   };
 
   return (
