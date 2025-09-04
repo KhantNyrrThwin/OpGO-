@@ -11,9 +11,9 @@ import { type Registers, type Flags, computeFlagsFromByte } from './types';
 
 // Executes MVI r, data where r in {A,B,C,D,E,H,L} and data is 8-bit immediate (two hex nibbles)
 export function executeMVI(instruction: string, registers: Registers, flags: Flags): { registers: Registers; flags: Flags } {
-	// Normalize input like: "MVI A, 3F" or "mvi b,3f"
+	// Normalize input like: "MVI A,05H" or "mvi b, 3fh"
 	const trimmed = instruction.trim();
-	const match = /^mvi\s+([abcdehl])\s*,\s*([0-9a-f]{2})$/i.exec(trimmed);
+	const match = /^mvi\s+([abcdehl])\s*,\s*([0-9a-f]{2})h$/i.exec(trimmed);
 	if (!match) {
 		return { registers, flags };
 	}
