@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FolderIcon, PlayIcon} from '@heroicons/react/24/solid';
 import { useFileContext } from '../contexts/FileContext';
-import { executeMVI, getInitialFlags, type Registers as RegistersType, type Flags as FlagsType } from '../functions/functions';
+import { executeMVI } from '../functions/mvi';
+import { executeMOV } from '../functions/mov';
+import { getInitialFlags, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
 export default function ControlBar() {
   const [showDropdown, setShowDropdown] = useState(false);
   const { fileName, hasUnsavedChanges, openFile, saveFile, saveAsFile } = useFileContext();
 
   const [cpuFlags, setCpuFlags] = useState<FlagsType>(getInitialFlags());
+  const currentLineRef = useRef<number>(0);
 
   const handleOpen = async () => {
     try {
@@ -61,20 +64,134 @@ export default function ControlBar() {
     });
   };
 
+  const normalizeInstruction = (raw: string): string => {
+    const trimmed = raw.trim();
+    // Remove trailing semicolon if present, then collapse whitespace
+    const noSemi = trimmed.endsWith(';') ? trimmed.slice(0, -1) : trimmed;
+    return noSemi.replace(/\s+/g, ' ').trim();
+  };
+
+  const getSemicolonErrors = (content: string) => {
+    const errors: Array<{ line: number; message: string; type: 'semicolon' }> = [];
+    const lines = content.split('\n');
+    for (let i = 0; i < lines.length; i += 1) {
+      const trimmed = lines[i].trim();
+      if (trimmed === '') continue;
+      if (!trimmed.endsWith(';')) {
+        errors.push({
+          line: i,
+          message: `Line ${i + 1}: Instruction must end with semicolon (;)`,
+          type: 'semicolon',
+        });
+      }
+    }
+    return errors;
+  };
+
   const stepInto = async () => {
     const content = await getCurrentContent();
-    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length === 0) return;
+    // Block on semicolon errors
+    const semiErrors = getSemicolonErrors(content);
+    if (semiErrors.length > 0) {
+      window.dispatchEvent(new CustomEvent('externalErrors', { detail: semiErrors }));
+      window.dispatchEvent(new CustomEvent('highlightLine', { detail: semiErrors[0].line }));
+      return;
+    }
 
-    const nextInstruction = lines[0];
+    // Validate all other errors (will show UI but not block here beyond semicolons)
+    window.dispatchEvent(new CustomEvent('validateInstructions'));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    const rawLines = content.split('\n');
+
+    // Advance to next non-empty line
+    const totalLines = rawLines.length;
+    while (currentLineRef.current < totalLines && rawLines[currentLineRef.current].trim() === '') {
+      currentLineRef.current += 1;
+    }
+    if (currentLineRef.current >= totalLines) return;
+
+    // Indicate which line is running (0-based index)
+    window.dispatchEvent(new CustomEvent('highlightLine', { detail: currentLineRef.current }));
+
+    const nextInstruction = normalizeInstruction(rawLines[currentLineRef.current]);
+    if (nextInstruction.length === 0) {
+      currentLineRef.current += 1;
+      return;
+    }
 
     const regs = await getCurrentRegisters();
-    const { registers: newRegs, flags: newFlags } = executeMVI(nextInstruction, regs, cpuFlags);
+    let result;
 
+    if (nextInstruction.toLowerCase().startsWith('mov')) {
+      result = executeMOV(nextInstruction, regs, cpuFlags);
+    } else {
+      result = executeMVI(nextInstruction, regs, cpuFlags);
+    }
+
+    const { registers: newRegs, flags: newFlags } = result;
     setCpuFlags(newFlags);
 
     window.dispatchEvent(new CustomEvent('setRegisters', { detail: newRegs }));
     window.dispatchEvent(new CustomEvent('setFlags', { detail: newFlags }));
+
+    // Move to next line for subsequent clicks
+    currentLineRef.current += 1;
+  };
+
+  const handleRun = async () => {
+    const content = await getCurrentContent();
+    // Block on semicolon errors
+    const semiErrors = getSemicolonErrors(content);
+    if (semiErrors.length > 0) {
+      window.dispatchEvent(new CustomEvent('externalErrors', { detail: semiErrors }));
+      window.dispatchEvent(new CustomEvent('highlightLine', { detail: semiErrors[0].line }));
+      return;
+    }
+
+    // Validate all other errors (display-only) before running
+    window.dispatchEvent(new CustomEvent('validateInstructions'));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    const rawLines = content.split('\n');
+
+    const regs = await getCurrentRegisters();
+    let workingRegs = regs;
+    let workingFlags = cpuFlags;
+
+    for (let i = 0; i < rawLines.length; i += 1) {
+      const raw = rawLines[i];
+      const normalized = normalizeInstruction(raw);
+      if (normalized.length === 0) continue;
+
+      // Highlight current line
+      window.dispatchEvent(new CustomEvent('highlightLine', { detail: i }));
+
+      let result;
+      if (normalized.toLowerCase().startsWith('mov')) {
+        result = executeMOV(normalized, workingRegs, workingFlags);
+      } else {
+        result = executeMVI(normalized, workingRegs, workingFlags);
+      }
+
+      workingRegs = result.registers;
+      workingFlags = result.flags;
+
+      // Update UI after each instruction
+      window.dispatchEvent(new CustomEvent('setRegisters', { detail: workingRegs }));
+      window.dispatchEvent(new CustomEvent('setFlags', { detail: workingFlags }));
+    }
+
+    setCpuFlags(workingFlags);
+    // Clear highlight after run completes
+    window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+    // Reset step-into position
+    currentLineRef.current = 0;
+  };
+
+  const handleStop = () => {
+    currentLineRef.current = 0;
+    window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+    window.dispatchEvent(new CustomEvent('clearErrors'));
   };
 
   return (
@@ -120,7 +237,7 @@ export default function ControlBar() {
       {/* Action Buttons Styled Like Image */}
       <div className="flex items-center gap-4">
         {/* Stop Button */}
-        <button className="bg-red-600 hover:bg-red-700 rounded-full p-2 flex items-center justify-center cursor-pointer">
+        <button className="bg-red-600 hover:bg-red-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleStop}>
           <div className="bg-white w-3.5 h-3.5" />
         </button>
 
@@ -130,7 +247,7 @@ export default function ControlBar() {
         </button>
 
         {/* Run Button */}
-        <button className="bg-blue-600 hover:bg-blue-700 rounded-full p-2 flex items-center justify-center cursor-pointer">
+        <button className="bg-blue-600 hover:bg-blue-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleRun}>
           <PlayIcon className="h-4.5 w-4.5 text-white" />
         </button>
 
