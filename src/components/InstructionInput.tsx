@@ -78,7 +78,7 @@ export default function InstructionInput() {
       
       // Check for valid instruction format
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi'];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli'];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
@@ -124,6 +124,16 @@ export default function InstructionInput() {
           });
         }
       }
+      if (instructionType === 'muli') {
+          const muliPattern = /^muli\s+[0-9a-f]{2}h$/i;
+          if (!muliPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: MULI immediate must be two hex digits followed by 'H' (e.g., MULI 05H)`,
+              type: 'syntax'
+            });
+          }
+        }
       }
     });
     

@@ -8,6 +8,7 @@ import { executeJNZ } from '../functions/jnz';
 import { executeJZ } from '../functions/jz';
 import { executeJNC } from '../functions/jnc';
 import { executeSUBI } from '../functions/subi';
+import { executeMULI } from '../functions/muli';
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -200,6 +201,9 @@ export default function ControlBar() {
           case 'subi':
             result = executeSUBI(nextInstruction, regs, cpuFlags);
           break;
+          case 'muli':
+              result = executeMULI(nextInstruction, regs, cpuFlags);
+              break;
         default:
           result = executeMVI(nextInstruction, regs, cpuFlags);
           break;
@@ -333,6 +337,9 @@ export default function ControlBar() {
               break;
             case 'subi':
               result = executeSUBI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'muli':
+              result = executeMULI(nextInstruction, regs, cpuFlags);
               break;
             default:
               result = executeMVI(nextInstruction, regs, cpuFlags);
