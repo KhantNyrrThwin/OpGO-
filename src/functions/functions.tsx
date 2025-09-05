@@ -19,3 +19,7 @@ export * from './subi';
 export * from './muli';
 export * from './mul';
 export * from './div';
+export * from './addc';
+export * from './addi';
+export * from './sub';
+export * from './subb';

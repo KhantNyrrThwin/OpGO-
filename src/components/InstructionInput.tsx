@@ -80,14 +80,14 @@ export default function InstructionInput() {
 
       // Check for valid instruction format
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr'];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr', 'addc', 'addi', 'sub', 'subb'];
 
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
         if (!validInstructions.includes(instructionType)) {          validationErrors.push({
             line: index,
-            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, DIVI, AND, ANDI, OR`,
+            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, DIVI, AND, ANDI, OR, ADDC, ADDI, SUB, SUBB`,
             type: 'invalid_instruction'
           });
         }
@@ -332,6 +332,54 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: DIV instruction must be in the form DIV reg (e.g., DIV B) where reg is A, B, C, D, E, H, or L.`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === ADDC === (Add with Carry)
+        if (instructionType === 'addc') {
+          const addcPattern = /^addc\s+[abcdehl]$/i;
+          if (!addcPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ADDC requires one register operand (e.g., ADDC B)`,
+              type: 'syntax'
+            });
+          }
+        }
+        
+        // === ADDI === (Add Immediate)
+        if (instructionType === 'addi') {
+          const addiPattern = /^addi\s+[0-9a-f]{2}h$/i;
+          if (!addiPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ADDI requires immediate value (two hex digits + H) (e.g., ADDI 3FH)`,
+              type: 'syntax'
+            });
+          }
+        }
+        
+        // === SUB === (Subtract)
+        if (instructionType === 'sub') {
+          const subPattern = /^sub\s+[abcdehl]$/i;
+          if (!subPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: SUB requires one register operand (e.g., SUB B)`,
+              type: 'syntax'
+            });
+          }
+        }
+        
+        // === SUBB === (Subtract with Borrow)
+        if (instructionType === 'subb') {
+          const subbPattern = /^subb\s+[abcdehl]$/i;
+          if (!subbPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: SUBB requires one register operand (e.g., SUBB B)`,
               type: 'syntax'
             });
           }
