@@ -87,3 +87,17 @@ export function getInitialRegisters(): Registers {
 export function getInitialFlags(): Flags {
 	return { zero: 0, sign: 0, carry: 0 };
 }
+
+// Helper function to compute flags from subtraction (for CMP instruction)
+export function computeFlagsFromSubtraction(a: number, b: number): Flags {
+  const result = (a - b) & 0xFF; // Get the 8-bit result
+  const isZero = result === 0;
+  const isNegative = (result & 0x80) !== 0;
+  const hasCarry = a < b; // Carry flag is set if borrow is needed (unsigned comparison)
+
+  return {
+    zero: isZero ? 1 : 0,
+    sign: isNegative ? 1 : 0,
+    carry: hasCarry ? 1 : 0
+  };
+}

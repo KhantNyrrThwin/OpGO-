@@ -80,7 +80,7 @@ export default function InstructionInput() {
 
       // Check for valid instruction format
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr'];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr', 'and', 'andi', 'or', 'divi', 'cmp', 'cpi'];
 
       
       if (instruction.length > 0) {
@@ -311,6 +311,30 @@ export default function InstructionInput() {
           }
         }
       }
+
+      // === CPI === (Compare Immediate)
+if (instructionType === 'cpi') {
+  const cpiPattern = /^cpi\s+[0-9a-f]{2}h$/i;
+  if (!cpiPattern.test(instruction)) {
+    validationErrors.push({
+      line: index,
+      message: `Line ${index + 1}: CPI immediate must be two hex digits followed by 'H' (e.g., CPI 05H)`,
+      type: 'syntax'
+    });
+  }
+}
+
+// === CMP === (Compare Register)
+if (instructionType === 'cmp') {
+  const cmpPattern = /^cmp\s+[abcdehl]$/i;
+  if (!cmpPattern.test(instruction)) {
+    validationErrors.push({
+      line: index,
+      message: `Line ${index + 1}: CMP requires a valid register (A,B,C,D,E,H,L) (e.g., CMP B)`,
+      type: 'syntax'
+    });
+  }
+}
       //Raven
 
         if (instructionType === 'mul') {
