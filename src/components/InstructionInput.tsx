@@ -396,6 +396,8 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: ORI immediate must be two hex digits followed by 'H' (e.g., ORI 0FH)`,
+              type:'syntax'});
+            }}
                  
         // === ADDI === (Add Immediate)
         if (instructionType === 'addi') {
@@ -417,6 +419,7 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: XOR requires a valid register (A,B,C,D,E,H,L)`,
+              type:'syntax'});}}
        
         
         // === SUB === (Subtract)
@@ -440,7 +443,8 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: XORI immediate must be two hex digits followed by 'H' (e.g., XORI 0FH)`,
-        
+              type:'syntax'});}}
+
         
         // === SUBB === (Subtract with Borrow)
         if (instructionType === 'subb') {
@@ -476,7 +480,7 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: DIVI immediate must be two hex digits followed by 'H' (e.g., DIVI 05H)`,
-         
+              type:'syntax'});}}
       }
 
     });
