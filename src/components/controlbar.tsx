@@ -4,6 +4,11 @@ import { useFileContext } from '../contexts/FileContext';
 import { executeMVI } from '../functions/mvi';
 import { executeMOV } from '../functions/mov';
 import { getInitialFlags, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
+import { executeDIVI } from '../functions/divi';
+import { executeAND } from '../functions/and';
+import { executeANDI } from '../functions/andi';
+import { executeOR } from '../functions/or';
+
 
 export default function ControlBar() {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -129,8 +134,35 @@ export default function ControlBar() {
         case 'mov':
           result = executeMOV(nextInstruction, regs, cpuFlags);
           break;
-        default:
+        case 'mvi':
           result = executeMVI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'divi':
+          result = executeDIVI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'and':
+          result = executeAND(nextInstruction, regs, cpuFlags);
+          break;
+        case 'andi':
+          result = executeANDI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'or':
+          result = executeOR(nextInstruction, regs, cpuFlags);
+          break;
+        case 'ori':
+          result = executeORI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'not':
+          result = executeNOT(nextInstruction, regs, cpuFlags);
+          break;
+        case 'xor':
+          result = executeXOR(nextInstruction, regs, cpuFlags);
+          break;
+        case 'xori':
+          result = executeXORI(nextInstruction, regs, cpuFlags);
+          break;
+        default:
+          result = { registers: regs, flags: cpuFlags };
           break;
       }
     }
@@ -181,14 +213,41 @@ export default function ControlBar() {
           case 'mov':
             result = executeMOV(normalized, workingRegs, workingFlags);
             break;
-          default:
+          case 'mvi':
             result = executeMVI(normalized, workingRegs, workingFlags);
+            break;
+          case 'divi':
+            result = executeDIVI(normalized, workingRegs, workingFlags);
+            break;
+          case 'and':
+            result = executeAND(normalized, workingRegs, workingFlags);
+            break;
+          case 'andi':
+            result = executeANDI(normalized, workingRegs, workingFlags);
+            break;
+          case 'or':
+            result = executeOR(normalized, workingRegs, workingFlags);
+            break;
+          case 'ori':
+            result = executeORI(normalized, workingRegs, workingFlags);
+            break;
+          case 'not':
+            result = executeNOT(normalized, workingRegs, workingFlags);
+            break;
+          case 'xor':
+            result = executeXOR(normalized, workingRegs, workingFlags);
+            break;
+          case 'xori':
+            result = executeXORI(normalized, workingRegs, workingFlags);
+            break;
+          default:
+            result = { registers: workingRegs, flags: workingFlags };
             break;
         }
       }
 
       workingRegs = result.registers;
-      workingFlags = result.flags;
+      workingFlags = result.flights;
 
       window.dispatchEvent(new CustomEvent('setRegisters', { detail: workingRegs }));
       window.dispatchEvent(new CustomEvent('setFlags', { detail: workingFlags }));
@@ -263,8 +322,6 @@ export default function ControlBar() {
         <button className="bg-blue-600 hover:bg-blue-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleRun}>
           <PlayIcon className="h-4.5 w-4.5 text-white" />
         </button>
-
-        
       </div>
     </div>
   );

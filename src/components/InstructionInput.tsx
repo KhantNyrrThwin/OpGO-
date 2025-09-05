@@ -30,6 +30,7 @@ export default function InstructionInput() {
       const allErrors = validateAllErrors();
       setErrors(allErrors);
       setShowErrors(allErrors.length > 0);
+      console.log('Validation errors:', allErrors);
     };
 
     const handleExternalErrors = (event: CustomEvent) => {
@@ -53,8 +54,6 @@ export default function InstructionInput() {
     };
   }, [instructions]);
 
-  // Removed immediate semicolon validation; semicolons are validated on Run/Step
-
   // Full validation function for run button
   const validateInstructions = (text: string): ValidationError[] => {
     const validationErrors: ValidationError[] = [];
@@ -75,41 +74,262 @@ export default function InstructionInput() {
         });
       }
       
-      // Check for valid instruction format
+      // Normalize instruction (remove semicolon)
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi'];
+      const validInstructions = ['mov', 'mvi', 'divi','and', 'andi', 'or'];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
         if (!validInstructions.includes(instructionType)) {
           validationErrors.push({
             line: index,
-            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI`,
+            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, DIVI, AND, ANDI, OR`,
             type: 'invalid_instruction'
           });
         }
         
-        // Check MOV instruction format
+        // === MOV === (two operands: MOV A,B)
         if (instructionType === 'mov') {
-          const parts = instruction.split(' ');
-          if (parts.length !== 3) {
+          const parts = instruction.split(/\s+/);
+          if (parts.length < 3) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: MOV instruction requires 2 operands (e.g., MOV A,B)`,
+              message: `Line ${index + 1}: MOV requires two registers (e.g., MOV A,B)`,
+              type: 'syntax'
+            });
+          } else if (parts.length > 3) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: MOV has too many operands`,
+              type: 'syntax'
+            });
+          } else if (!/^[abcdehl]$/i.test(parts[1].replace(',', '')) || !/^[abcdehl]$/i.test(parts[2])) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L)`,
               type: 'syntax'
             });
           }
         }
         
-        // Check MVI instruction format (require two hex digits followed by 'H')
+        // === MVI === (register + immediate hex: MVI A,05H)
         if (instructionType === 'mvi') {
-          const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
-          if (!mviPattern.test(instruction)) {
+          const parts = instruction.split(/\s+/);
+          if (parts.length < 2) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: MVI immediate must be two hex digits followed by 'H' (e.g., MVI A,05H)`,
+              message: `Line ${index + 1}: MVI requires a register and immediate value`,
               type: 'syntax'
             });
+          } else if (parts.length === 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: MVI requires an immediate value (e.g., MVI A,05H)`,
+              type: 'syntax'
+            });
+          } else {
+            const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
+            if (!mviPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: MVI requires a register and immediate hex (e.g., MVI A,05H)`,
+                type: 'syntax'
+              });
+            }
+          }
+        }
+        
+        // === AND === (one register: AND A)
+        if (instructionType === 'and') {
+          const parts = instruction.split(/\s+/);
+          if (parts.length < 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: AND requires a register`,
+              type: 'syntax'
+            });
+          } else if (parts.length > 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: AND has too many operands`,
+              type: 'syntax'
+            });
+          } else {
+            // Check if the operand contains a comma (indicating multiple operands)
+            if (parts[1].includes(',')) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: AND only takes one register (e.g., AND A)`,
+                type: 'syntax'
+              });
+            } else {
+              const andPattern = /^and\s+[abcdehl]$/i;
+              if (!andPattern.test(instruction)) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: AND requires a valid register (A,B,C,D,E,H,L)`,
+                  type: 'syntax'
+                });
+              }
+            }
+          }
+        }
+
+        // === DIVI === (immediate hex: DIVI 05H)
+        if (instructionType === 'divi') {
+          const parts = instruction.split(/\s+/);
+          if (parts.length < 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DIVI requires an immediate value`,
+              type: 'syntax'
+            });
+          } else if (parts.length > 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DIVI has too many operands`,
+              type: 'syntax'
+            });
+          } else {
+            // Check if the operand contains a comma (indicating register operands)
+            if (parts[1].includes(',')) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: DIVI requires an immediate hex value, not registers (e.g., DIVI 05H)`,
+                type: 'syntax'
+              });
+            } else {
+              const diviPattern = /^divi\s+([0-9a-f]{2}h)$/i;
+              const match = diviPattern.exec(instruction);
+              if (!match) {
+                // Specific error messages for different invalid formats
+                const operand = parts[1];
+                if (/^\d+$/.test(operand)) {
+                  validationErrors.push({
+                    line: index,
+                    message: `Line ${index + 1}: DIVI requires 'H' suffix (e.g., DIVI 05H)`,
+                    type: 'syntax'
+                  });
+                } else if (operand.endsWith('h') || operand.endsWith('H')) {
+                  if (operand.toLowerCase().endsWith('hh')) {
+                    validationErrors.push({
+                      line: index,
+                      message: `Line ${index + 1}: DIVI has extra 'H' suffix (e.g., DIVI 05H, not 05HH)`,
+                      type: 'syntax'
+                    });
+                  } else if (!/^[0-9a-f]{2}h$/i.test(operand)) {
+                    validationErrors.push({
+                      line: index,
+                      message: `Line ${index + 1}: DIVI requires valid hex digits (0-9, A-F)`,
+                      type: 'syntax'
+                    });
+                  }
+                } else {
+                  validationErrors.push({
+                    line: index,
+                    message: `Line ${index + 1}: DIVI requires an immediate hex value (e.g., DIVI 05H)`,
+                    type: 'syntax'
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // === ANDI === (immediate hex: ANDI 0FH)
+        if (instructionType === 'andi') {
+          const parts = instruction.split(/\s+/);
+          if (parts.length < 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ANDI requires an immediate value`,
+              type: 'syntax'
+            });
+          } else if (parts.length > 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ANDI has too many operands`,
+              type: 'syntax'
+            });
+          } else {
+            // Check if the operand contains a comma (indicating register operands)
+            if (parts[1].includes(',')) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: ANDI requires an immediate hex value, not registers (e.g., ANDI 0FH)`,
+                type: 'syntax'
+              });
+            } else {
+              const andiPattern = /^andi\s+([0-9a-f]{2}h)$/i;
+              const match = andiPattern.exec(instruction);
+              if (!match) {
+                // Specific error messages for different invalid formats
+                const operand = parts[1];
+                if (/^\d+$/.test(operand)) {
+                  validationErrors.push({
+                    line: index,
+                    message: `Line ${index + 1}: ANDI requires 'H' suffix (e.g., ANDI 0FH)`,
+                    type: 'syntax'
+                  });
+                } else if (operand.endsWith('h') || operand.endsWith('H')) {
+                  if (operand.toLowerCase().endsWith('hh')) {
+                    validationErrors.push({
+                      line: index,
+                      message: `Line ${index + 1}: ANDI has extra 'H' suffix (e.g., ANDI 0FH, not 0FHH)`,
+                      type: 'syntax'
+                    });
+                  } else if (!/^[0-9a-f]{2}h$/i.test(operand)) {
+                    validationErrors.push({
+                      line: index,
+                      message: `Line ${index + 1}: ANDI requires valid hex digits (0-9, A-F)`,
+                      type: 'syntax'
+                    });
+                  }
+                } else {
+                  validationErrors.push({
+                    line: index,
+                    message: `Line ${index + 1}: ANDI requires an immediate hex value (e.g., ANDI 0FH)`,
+                    type: 'syntax'
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // === OR === (one register: OR A)
+        if (instructionType === 'or') {
+          const parts = instruction.split(/\s+/);
+          if (parts.length < 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: OR requires a register`,
+              type: 'syntax'
+            });
+          } else if (parts.length > 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: OR has too many operands`,
+              type: 'syntax'
+            });
+          } else {
+            // Check if the operand contains a comma (indicating multiple operands)
+            if (parts[1].includes(',')) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: OR only takes one register (e.g., OR A)`,
+                type: 'syntax'
+              });
+            } else {
+              const orPattern = /^or\s+[abcdehl]$/i;
+              if (!orPattern.test(instruction)) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: OR requires a valid register (A,B,C,D,E,H,L)`,
+                  type: 'syntax'
+                });
+              }
+            }
           }
         }
       }
@@ -141,10 +361,9 @@ export default function InstructionInput() {
       if (textareaRef.current && index >= 0) {
         const linesUpToIndex = instructions.split('\n').slice(0, index).join('\n');
         const approxCharIndex = linesUpToIndex.length + 1;
-        // Move caret to target line start for scrollIntoView behavior
         textareaRef.current.selectionStart = approxCharIndex;
         textareaRef.current.selectionEnd = approxCharIndex;
-        textareaRef.current.scrollTop = textareaRef.current.scrollTop + 0; // force layout
+        textareaRef.current.scrollTop = textareaRef.current.scrollTop + 0;
       }
     };
 
@@ -172,7 +391,6 @@ export default function InstructionInput() {
 
       setInstructions(updatedValue);
 
-      
       setTimeout(() => {
         textarea.selectionStart = textarea.selectionEnd = start + indent.length;
       }, 0);
@@ -196,9 +414,9 @@ export default function InstructionInput() {
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="space-y-2 max-h-32 overflow-y-auto">
+          <div className="space-y-2 overflow-y-auto">
             {errors.map((error, index) => (
-              <Alert key={index} variant="destructive" className="text-sm">
+              <Alert key={index} variant='destructive' className="text-sm">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="text-red-400">
                   {error.type === 'semicolon' ? 'Missing Semicolon' : 
@@ -214,7 +432,6 @@ export default function InstructionInput() {
       )}
       
       <div className="flex flex-row flex-1">
-        
         <div className="bg-[#1f1f1f] text-gray-400 px-2 py-2 text-right select-none flex-shrink-0">
           {lines.map((_, index) => {
             const isActive = index === highlightedLine;
@@ -229,25 +446,23 @@ export default function InstructionInput() {
           })}
         </div>
 
-        
         <div className="flex-grow relative">
           <textarea
             ref={textareaRef}
             spellCheck={false}
             autoCorrect="off"
-            autoCapitalize="off"
+            autoCapitalize='off'
             value={instructions}
-                      onChange={(e) => {
-            const newInstructions = e.target.value;
-            setInstructions(newInstructions);
-            setHasUnsavedChanges(true);
-          }}
+            onChange={(e) => {
+              const newInstructions = e.target.value;
+              setInstructions(newInstructions);
+              setHasUnsavedChanges(true);
+            }}
             onKeyDown={handleKeyDown}
             placeholder="Type your instructions here."
             className="w-full h-full bg-transparent p-2 resize-none outline-none leading-[3rem] whitespace-pre relative z-10"
             style={{ lineHeight: '3rem' }}
           />
-          {/* Highlight overlay for current line */}
           {highlightedLine >= 0 && (
             <div 
               className="absolute left-2 right-2 bg-blue-500/20 border-l-4 border-blue-500 z-0"
