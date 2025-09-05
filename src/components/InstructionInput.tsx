@@ -78,7 +78,7 @@ export default function InstructionInput() {
       
       // Check for valid instruction format
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli'];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul'];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
@@ -130,6 +130,18 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: MULI immediate must be two hex digits followed by 'H' (e.g., MULI 05H)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        if (instructionType === 'mul') {
+          // MUL reg (reg must be one of A, B, C, D, E, H, L)
+          const mulPattern = /^mul\s+[abcdehl]$/i;
+          if (!mulPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: MUL instruction must be in the form MUL reg (e.g., MUL B) where reg is A, B, C, D, E, H, or L.`,
               type: 'syntax'
             });
           }
