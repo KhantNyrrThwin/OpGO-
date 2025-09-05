@@ -80,8 +80,7 @@ export default function InstructionInput() {
 
       // Check for valid instruction format
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr'];
-
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr', 'and', 'andi', 'or', 'divi', 'cmp', 'cpi','ori','xor','xori','not'];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
@@ -336,6 +335,112 @@ export default function InstructionInput() {
             });
           }
         }
+
+          // === AND === (one register: AND A)
+          if (instructionType === 'and') {
+            // More flexible parsing for AND that handles cases with and without spaces
+            const andPattern = /^and\s*[abcdehl]$/i;
+            if (!andPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: AND requires a valid register (A,B,C,D,E,H,L)`,
+                type: 'syntax'
+              });
+            }
+          }
+
+         // === ANDI === (immediate hex: ANDI 0FH)
+         if (instructionType === 'andi') {
+          // More flexible parsing for ANDI that handles cases with and without spaces
+          const andiPattern = /^andi\s*[0-9a-f]{2}h$/i;
+          if (!andiPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ANDI immediate must be two hex digits followed by 'H' (e.g., ANDI 0FH)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === OR === (one register: OR A)
+        if (instructionType === 'or') {
+          // More flexible parsing for OR that handles cases with and without spaces
+          const orPattern = /^or\s*[abcdehl]$/i;
+          if (!orPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: OR requires a valid register (A,B,C,D,E,H,L)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === ORI === (immediate hex: ORI 0FH)
+        if (instructionType === 'ori') {
+          // More flexible parsing for ORI that handles cases with and without spaces
+          const oriPattern = /^ori\s*[0-9a-f]{2}h$/i;
+          if (!oriPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ORI immediate must be two hex digits followed by 'H' (e.g., ORI 0FH)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+         // === XOR === (one register: XOR A)
+         if (instructionType === 'xor') {
+          // More flexible parsing for XOR that handles cases with and without spaces
+          const xorPattern = /^xor\s*[abcdehl]$/i;
+          if (!xorPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: XOR requires a valid register (A,B,C,D,E,H,L)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === XORI === (immediate hex: XORI 0FH)
+        if (instructionType === 'xori') {
+          // More flexible parsing for XORI that handles cases with and without spaces
+          const xoriPattern = /^xori\s*[0-9a-f]{2}h$/i;
+          if (!xoriPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: XORI immediate must be two hex digits followed by 'H' (e.g., XORI 0FH)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+            // === NOT === (no operands: NOT)
+            if (instructionType === 'not') {
+              // More flexible parsing for NOT that handles cases with and without spaces
+              const notPattern = /^not$/i;
+              if (!notPattern.test(instruction)) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: NOT takes no operands`,
+                  type: 'syntax'
+                });
+              }
+            }
+
+             // === DIVI === (immediate hex: DIVI 05H)
+        if (instructionType === 'divi') {
+          // More flexible parsing for DIVI that handles cases with and without spaces
+          const diviPattern = /^divi\s*[0-9a-f]{2}h$/i;
+          if (!diviPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DIVI immediate must be two hex digits followed by 'H' (e.g., DIVI 05H)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+
       }
 
     });
