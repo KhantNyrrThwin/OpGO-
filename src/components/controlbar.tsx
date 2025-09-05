@@ -15,13 +15,15 @@ import { executeJMP } from '../functions/jmp';
 import { executeJNZ } from '../functions/jnz';
 import { executeJZ } from '../functions/jz';
 import { executeJNC } from '../functions/jnc';
-
 import { executeJM } from '../functions/jm';
 import { executeJP } from '../functions/jp';
 import { executeJC } from '../functions/jc';
 import { executeINR } from '../functions/inr';
 import { executeDCR } from '../functions/dcr';
-
+import { executeSUBI } from '../functions/subi';
+import { executeMULI } from '../functions/muli';
+import { executeMUL} from '../functions/mul';
+import { executeDIV } from '../functions/div';
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -405,6 +407,109 @@ export default function ControlBar() {
             case 'jp':
             result = executeJP(nextInstruction, currentRegs, currentFlags, labelMap);
             if (result.jumpTo !== undefined) {
+
+          case 'subi':
+            result = executeSUBI(nextInstruction, regs, cpuFlags);
+          break;
+          case 'muli':
+              result = executeMULI(nextInstruction, regs, cpuFlags);
+              break;
+          case 'mul':
+          result = executeMUL(nextInstruction, regs, cpuFlags);
+          break;  
+          case 'div':
+            result = executeDIV(nextInstruction, regs, cpuFlags);
+            break;
+        default:
+          result = executeMVI(nextInstruction, regs, cpuFlags);
+          break;
+      }
+    }
+
+    const { registers: newRegs, flags: newFlags } = result;
+    setCpuFlags(newFlags);
+
+    window.dispatchEvent(new CustomEvent('setRegisters', { detail: newRegs }));
+    window.dispatchEvent(new CustomEvent('setFlags', { detail: newFlags }));
+
+    // Move to next line for subsequent clicks
+    currentLineRef.current += 1;
+  };
+
+  const handleRun = async () => {
+    if (isRunningRef.current) return; // Prevent multiple runs
+    
+    const content = await getCurrentContent();
+    const labelMap = parseLabels(content);
+    
+    // Block on semicolon errors
+    const semiErrors = getSemicolonErrors(content);
+    if (semiErrors.length > 0) {
+      window.dispatchEvent(new CustomEvent('externalErrors', { detail: semiErrors }));
+      window.dispatchEvent(new CustomEvent('highlightLine', { detail: semiErrors[0].line }));
+      return;
+    }
+
+    // Validate all other errors (display-only) before running
+    window.dispatchEvent(new CustomEvent('validateInstructions'));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    
+    const rawLines = content.split('\n');
+
+    // Reset registers and flags to initial state
+    const initialRegisters = getInitialRegisters();
+    const initialFlags = getInitialFlags();
+    setCpuFlags(initialFlags);
+    window.dispatchEvent(new CustomEvent('setRegisters', { detail: initialRegisters }));
+    window.dispatchEvent(new CustomEvent('setFlags', { detail: initialFlags }));
+
+    // Reset position and flags
+    currentLineRef.current = 0;
+    isFirstStepRef.current = true;
+    isRunningRef.current = true;
+
+    // Auto-step through all instructions
+    const autoStep = async () => {
+      while (isRunningRef.current && currentLineRef.current < rawLines.length) {
+        // Check if we should stop
+        if (!isRunningRef.current) break;
+
+        // Advance to next non-empty line
+        while (currentLineRef.current < rawLines.length && rawLines[currentLineRef.current].trim() === '') {
+          currentLineRef.current += 1;
+        }
+        
+        if (currentLineRef.current >= rawLines.length) break;
+
+        // Highlight current line
+        window.dispatchEvent(new CustomEvent('highlightLine', { detail: currentLineRef.current }));
+
+        const nextInstruction = normalizeInstruction(rawLines[currentLineRef.current]);
+        if (nextInstruction.length === 0) {
+          currentLineRef.current += 1;
+          continue;
+        }
+
+        // Get current registers (either initial or from previous step)
+        let regs;
+        if (isFirstStepRef.current) {
+          regs = initialRegisters;
+          isFirstStepRef.current = false;
+        } else {
+          regs = await getCurrentRegisters();
+        }
+
+        let result;
+        // Use switch on mnemonic (opcode)
+        {
+          const opcode = nextInstruction.split(' ')[0].toLowerCase();
+          switch (opcode) {
+            case 'mov':
+              result = executeMOV(nextInstruction, regs, cpuFlags);
+              break;
+            case 'jmp':
+              result = executeJMP(nextInstruction, regs, cpuFlags, labelMap);
+              if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
                 currentFlags = result.flags;
                 setCpuFlags(result.flags);
@@ -486,6 +591,21 @@ export default function ControlBar() {
             case 'xori':
             result = executeXORI(nextInstruction, currentRegs, currentFlags);
             break;*/
+
+              }
+              break;
+            case 'subi':
+              result = executeSUBI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'muli':
+              result = executeMULI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'mul':
+              result = executeMUL(nextInstruction, regs, cpuFlags);
+            break;
+            case 'div':
+              result = executeDIV(nextInstruction, regs, cpuFlags);
+              break;
             default:
             result = executeMVI(nextInstruction, currentRegs, currentFlags);
             break;

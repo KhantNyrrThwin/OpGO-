@@ -17,3 +17,8 @@ export * from './jp';
 export * from './jm';
 export * from './inr';
 export * from './dcr';
+=======
+export * from './subi';
+export * from './muli';
+export * from './mul';
+export * from './div';
