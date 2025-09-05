@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { AlertCircle, X } from 'lucide-react';
@@ -80,37 +79,26 @@ export default function InstructionInput() {
 
       // Check for valid instruction format
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr'];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not'];
 
       
       if (instruction.length > 0) {
-        const instructionType = instruction.split(' ')[0];
+        const instructionType = instruction.split(/\s+/)[0];
         if (!validInstructions.includes(instructionType)) {          validationErrors.push({
             line: index,
-            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, DIVI, AND, ANDI, OR`,
+            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, DIVI, AND, ANDI, OR, ORI, NOT, XOR, XORI`,
             type: 'invalid_instruction'
           });
         }
         
         // === MOV === (two operands: MOV A,B)
         if (instructionType === 'mov') {
-          const parts = instruction.split(/\s+/);
-          if (parts.length < 3) {
+          // More flexible parsing for MOV that handles cases with and without spaces
+          const movPattern = /^mov\s*[abcdehl]\s*,\s*[abcdehl]$/i;
+          if (!movPattern.test(instruction)) {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: MOV requires two registers (e.g., MOV A,B)`,
-              type: 'syntax'
-            });
-          } else if (parts.length > 3) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MOV has too many operands`,
-              type: 'syntax'
-            });
-          } else if (!/^[abcdehl]$/i.test(parts[1].replace(',', '')) || !/^[abcdehl]$/i.test(parts[2])) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L)`,
               type: 'syntax'
             });
           }
@@ -118,119 +106,190 @@ export default function InstructionInput() {
         
         // === MVI === (register + immediate hex: MVI A,05H)
         if (instructionType === 'mvi') {
-          const parts = instruction.split(/\s+/);
-          if (parts.length < 2) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MVI requires a register and immediate value`,
-              type: 'syntax'
-            });
-          } else if (parts.length === 2) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MVI requires an immediate value (e.g., MVI A,05H)`,
-              type: 'syntax'
-            });
-          } else {
-            const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
-            if (!mviPattern.test(instruction)) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: MVI requires a register and immediate hex (e.g., MVI A,05H)`,
-                type: 'syntax'
-              });
-            }
-          }
-        }
-        
-       
-
-
-        
-
-      if (instructionType === 'jmp') {
-        const jmpPattern = /^jmp\s+[a-z_][a-z0-9_]*$/i;
-        if (!jmpPattern.test(instruction)) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JMP must be followed by a valid label (e.g., JMP LOOP)`,
-            type: 'syntax'
-          });
-        }
-      }
-      //Raven
-            // === JP === (Jump if Positive)
-      if (instructionType === 'jp') {
-        const jpPattern = /^jp\s+[a-z_][a-z0-9_]*$/i;
-        if (!jpPattern.test(instruction)) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JP must be followed by a valid label (e.g., JP LOOP)`,
-            type: 'syntax'
-          });
-        }
-      }
-
-      // === JM === (Jump if Minus)
-      if (instructionType === 'jm') {
-        const jmPattern = /^jm\s+[a-z_][a-z0-9_]*$/i;
-        if (!jmPattern.test(instruction)) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JM must be followed by a valid label (e.g., JM LOOP)`,
-            type: 'syntax'
-
-          });
-        }}
-        
-        // Check MOV instruction format
-        if (instructionType === 'mov') {
-          const parts = instruction.split(' ');
-          if (parts.length !== 3) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MOV instruction requires 2 operands (e.g., MOV A,B)`,
-              type: 'syntax'
-            });
-          }
-        }
-        
-        // Check MVI instruction format (require two hex digits followed by 'H')
-        if (instructionType === 'mvi') {
-          const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
+          // More flexible parsing for MVI that handles cases with and without spaces
+          const mviPattern = /^mvi\s*[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
           if (!mviPattern.test(instruction)) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: MVI immediate must be two hex digits followed by 'H' (e.g., MVI A,05H)`,
+              message: `Line ${index + 1}: MVI requires a register and immediate hex (e.g., MVI A,05H)`,
+              type: 'syntax'
+            });
+          }
+        }
+        
+        // === AND === (one register: AND A)
+        if (instructionType === 'and') {
+          // More flexible parsing for AND that handles cases with and without spaces
+          const andPattern = /^and\s*[abcdehl]$/i;
+          if (!andPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: AND requires a valid register (A,B,C,D,E,H,L)`,
               type: 'syntax'
             });
           }
         }
 
-      // === JC === (Jump if Carry)
-      if (instructionType === 'jc') {
-        const jcPattern = /^jc\s+[a-z_][a-z0-9_]*$/i;
-        if (!jcPattern.test(instruction)) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JC must be followed by a valid label (e.g., JC LOOP)`,
-            type: 'syntax'
-          });
+        // === ANDI === (immediate hex: ANDI 0FH)
+        if (instructionType === 'andi') {
+          // More flexible parsing for ANDI that handles cases with and without spaces
+          const andiPattern = /^andi\s*[0-9a-f]{2}h$/i;
+          if (!andiPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ANDI immediate must be two hex digits followed by 'H' (e.g., ANDI 0FH)`,
+              type: 'syntax'
+            });
+          }
         }
-      }
 
-        if (instructionType === 'subi') {
-        const subiPattern = /^subi\s+[0-9a-f]{2}h$/i;
-        if (!subiPattern.test(instruction)) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: SUBI immediate must be two hex digits followed by 'H' (e.g., SUBI 05H)`,
-            type: 'syntax'
-          });
+        // === OR === (one register: OR A)
+        if (instructionType === 'or') {
+          // More flexible parsing for OR that handles cases with and without spaces
+          const orPattern = /^or\s*[abcdehl]$/i;
+          if (!orPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: OR requires a valid register (A,B,C,D,E,H,L)`,
+              type: 'syntax'
+            });
+          }
         }
-      }
-      if (instructionType === 'muli') {
-          const muliPattern = /^muli\s+[0-9a-f]{2}h$/i;
+
+        // === ORI === (immediate hex: ORI 0FH)
+        if (instructionType === 'ori') {
+          // More flexible parsing for ORI that handles cases with and without spaces
+          const oriPattern = /^ori\s*[0-9a-f]{2}h$/i;
+          if (!oriPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ORI immediate must be two hex digits followed by 'H' (e.g., ORI 0FH)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === XOR === (one register: XOR A)
+        if (instructionType === 'xor') {
+          // More flexible parsing for XOR that handles cases with and without spaces
+          const xorPattern = /^xor\s*[abcdehl]$/i;
+          if (!xorPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: XOR requires a valid register (A,B,C,D,E,H,L)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === XORI === (immediate hex: XORI 0FH)
+        if (instructionType === 'xori') {
+          // More flexible parsing for XORI that handles cases with and without spaces
+          const xoriPattern = /^xori\s*[0-9a-f]{2}h$/i;
+          if (!xoriPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: XORI immediate must be two hex digits followed by 'H' (e.g., XORI 0FH)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === NOT === (no operands: NOT)
+        if (instructionType === 'not') {
+          // More flexible parsing for NOT that handles cases with and without spaces
+          const notPattern = /^not$/i;
+          if (!notPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: NOT takes no operands`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === DIVI === (immediate hex: DIVI 05H)
+        if (instructionType === 'divi') {
+          // More flexible parsing for DIVI that handles cases with and without spaces
+          const diviPattern = /^divi\s*[0-9a-f]{2}h$/i;
+          if (!diviPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DIVI immediate must be two hex digits followed by 'H' (e.g., DIVI 05H)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === JMP === (Jump to label)
+        if (instructionType === 'jmp') {
+          // More flexible parsing for JMP that handles cases with and without spaces
+          const jmpPattern = /^jmp\s*[a-z_][a-z0-9_]*$/i;
+          if (!jmpPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: JMP must be followed by a valid label (e.g., JMP LOOP)`,
+              type: 'syntax'
+            });
+          }
+        }
+        
+        // === JP === (Jump if Positive)
+        if (instructionType === 'jp') {
+          // More flexible parsing for JP that handles cases with and without spaces
+          const jpPattern = /^jp\s*[a-z_][a-z0-9_]*$/i;
+          if (!jpPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: JP must be followed by a valid label (e.g., JP LOOP)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === JM === (Jump if Minus)
+        if (instructionType === 'jm') {
+          // More flexible parsing for JM that handles cases with and without spaces
+          const jmPattern = /^jm\s*[a-z_][a-z0-9_]*$/i;
+          if (!jmPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: JM must be followed by a valid label (e.g., JM LOOP)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === JC === (Jump if Carry)
+        if (instructionType === 'jc') {
+          // More flexible parsing for JC that handles cases with and without spaces
+          const jcPattern = /^jc\s*[a-z_][a-z0-9_]*$/i;
+          if (!jcPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: JC must be followed by a valid label (e.g., JC LOOP)`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        // === SUBI === (Subtract Immediate)
+        if (instructionType === 'subi') {
+          // More flexible parsing for SUBI that handles cases with and without spaces
+          const subiPattern = /^subi\s*[0-9a-f]{2}h$/i;
+          if (!subiPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: SUBI immediate must be two hex digits followed by 'H' (e.g., SUBI 05H)`,
+              type: 'syntax'
+            });
+          }
+        }
+        
+        // === MULI === (Multiply Immediate)
+        if (instructionType === 'muli') {
+          // More flexible parsing for MULI that handles cases with and without spaces
+          const muliPattern = /^muli\s*[0-9a-f]{2}h$/i;
           if (!muliPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -240,82 +299,36 @@ export default function InstructionInput() {
           }
         }
 
-      // === INR === (Increment Register)
-      if (instructionType === 'inr') {
-        const parts = instruction.split(/\s+/);
-        if (parts.length < 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: INR requires a register`,
-            type: 'syntax'
-          });
-        } else if (parts.length > 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: INR has too many operands`,
-            type: 'syntax'
-          });
-        } else {
-          // Check if the operand contains a comma (indicating multiple operands)
-          if (parts[1].includes(',')) {
+        // === INR === (Increment Register)
+        if (instructionType === 'inr') {
+          // More flexible parsing for INR that handles cases with and without spaces
+          const inrPattern = /^inr\s*[abcdehl]$/i;
+          if (!inrPattern.test(instruction)) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: INR only takes one register (e.g., INR A)`,
+              message: `Line ${index + 1}: INR requires a valid register (A,B,C,D,E,H,L)`,
               type: 'syntax'
             });
-          } else {
-            const inrPattern = /^inr\s+[abcdehl]$/i;
-            if (!inrPattern.test(instruction)) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: INR requires a valid register (A,B,C,D,E,H,L)`,
-                type: 'syntax'
-              });
-            }
           }
         }
-      }
 
-      // === DCR === (Decrement Register)
-      if (instructionType === 'dcr') {
-        const parts = instruction.split(/\s+/);
-        if (parts.length < 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: DCR requires a register`,
-            type: 'syntax'
-          });
-        } else if (parts.length > 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: DCR has too many operands`,
-            type: 'syntax'
-          });
-        } else {
-          // Check if the operand contains a comma (indicating multiple operands)
-          if (parts[1].includes(',')) {
+        // === DCR === (Decrement Register)
+        if (instructionType === 'dcr') {
+          // More flexible parsing for DCR that handles cases with and without spaces
+          const dcrPattern = /^dcr\s*[abcdehl]$/i;
+          if (!dcrPattern.test(instruction)) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: DCR only takes one register (e.g., DCR A)`,
+              message: `Line ${index + 1}: DCR requires a valid register (A,B,C,D,E,H,L)`,
               type: 'syntax'
             });
-          } else {
-            const dcrPattern = /^dcr\s+[abcdehl]$/i;
-            if (!dcrPattern.test(instruction)) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: DCR requires a valid register (A,B,C,D,E,H,L)`,
-                type: 'syntax'
-              });
-            }
           }
         }
-      }
-      //Raven
 
+        // === MUL === (Multiply Register)
         if (instructionType === 'mul') {
-          // MUL reg (reg must be one of A, B, C, D, E, H, L)
-          const mulPattern = /^mul\s+[abcdehl]$/i;
+          // More flexible parsing for MUL that handles cases with and without spaces
+          const mulPattern = /^mul\s*[abcdehl]$/i;
           if (!mulPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -325,9 +338,10 @@ export default function InstructionInput() {
           }
         }
 
+        // === DIV === (Divide Register)
         if (instructionType === 'div') {
-          // DIV reg (reg must be one of A, B, C, D, E, H, L)
-          const divPattern = /^div\s+[abcdehl]$/i;
+          // More flexible parsing for DIV that handles cases with and without spaces
+          const divPattern = /^div\s*[abcdehl]$/i;
           if (!divPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -339,9 +353,10 @@ export default function InstructionInput() {
       }
 
     });
-    
+
     return validationErrors;
   };
+
 
   useEffect(() => {
     if (textareaRef.current) {
