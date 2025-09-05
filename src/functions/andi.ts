@@ -15,7 +15,7 @@ export function executeANDI(instruction: string, registers: Registers, flags: Fl
   const result = (aVal & imm) & 0xFF;
 
   const hex = result.toString(16).toUpperCase().padStart(2, "0");
-  const nextRegs = { ...registers, A: [hex[0], hex[1]] };
+  const nextRegs = { ...registers, A: [hex[0], hex[1]] as [string, string] };
   const nextFlags = computeFlagsFromByte(hex[0], hex[1]);
 
   return { registers: nextRegs, flags: nextFlags };
