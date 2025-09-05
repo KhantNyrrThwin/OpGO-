@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { AlertCircle, X } from 'lucide-react';
 import { useFileContext } from '../contexts/FileContext';
+import { parseLabels } from '../functions/parseLabels';
 
 interface ValidationError {
   line: number;
@@ -17,12 +18,13 @@ export default function InstructionInput() {
   const [showErrors, setShowErrors] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { setHasUnsavedChanges } = useFileContext();
+  const labelMap = parseLabels(instructions);
 
   const lines = instructions.split('\n');
 
   // Function to validate all errors (for run button)
   const validateAllErrors = (): ValidationError[] => {
-    return validateInstructions(instructions);
+    return validateInstructions(instructions, labelMap);
   };
 
   // Expose validation function to parent components
@@ -58,7 +60,7 @@ export default function InstructionInput() {
   // Removed immediate semicolon validation; semicolons are validated on Run/Step
 
   // Full validation function for run button
-  const validateInstructions = (text: string): ValidationError[] => {
+  const validateInstructions = (text: string, labelMap: Record<string, number>): ValidationError[] => {
     const validationErrors: ValidationError[] = [];
     const instructionLines = text.split('\n');
     
@@ -67,9 +69,42 @@ export default function InstructionInput() {
       
       // Skip empty lines
       if (trimmedLine === '') return;
+
+      // Split label if present
+      const labelSplit = trimmedLine.split(':');
+      let instructionPart = trimmedLine;
+
+      if (labelSplit.length === 2) {
+        const label = labelSplit[0].trim();
+        const labelValid = /^[a-z_][a-z0-9_]*$/i.test(label);
+        if (!labelValid) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: Invalid label name "${label}"`,
+            type: 'syntax'
+          });
+        }
+
+        instructionPart = labelSplit[1].trim();
+        if (instructionPart === '') {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: Label must be followed by an instruction`,
+            type: 'syntax'
+          });
+          return;
+        }
+      } else if (labelSplit.length > 2) {
+        validationErrors.push({
+          line: index,
+          message: `Line ${index + 1}: Multiple colons found. Only one label allowed per line.`,
+          type: 'syntax'
+        });
+        return;
+      }
       
       // Check for semicolon
-      if (!trimmedLine.endsWith(';')) {
+      if (!instructionPart.endsWith(';')) {
         validationErrors.push({
           line: index,
           message: `Line ${index + 1}: Instruction must end with semicolon (;)`,
@@ -79,7 +114,7 @@ export default function InstructionInput() {
       
 
       // Check for valid instruction format
-      const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
+      const instruction = instructionPart.replace(/;$/, '').trim().toLowerCase();
       const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr', 'and', 'andi', 'or', 'divi', 'cmp', 'cpi'];
 
       
@@ -87,7 +122,7 @@ export default function InstructionInput() {
         const instructionType = instruction.split(' ')[0];
         if (!validInstructions.includes(instructionType)) {          validationErrors.push({
             line: index,
-            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, DIVI, AND, ANDI, OR`,
+            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: ${validInstructions}`,
             type: 'invalid_instruction'
           });
         }
@@ -147,41 +182,138 @@ export default function InstructionInput() {
 
 
         
-
+      // ===== JMP ====== (Unconditional Jump)
       if (instructionType === 'jmp') {
-        const jmpPattern = /^jmp\s+[a-z_][a-z0-9_]*$/i;
-        if (!jmpPattern.test(instruction)) {
+        const jmpPattern = /^jmp\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jmpPattern.exec(instruction);
+        if (!match) {
           validationErrors.push({
             line: index,
             message: `Line ${index + 1}: JMP must be followed by a valid label (e.g., JMP LOOP)`,
             type: 'syntax'
           });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
         }
       }
+
+      // ===== JNZ ====== (Jump if result not zero)
+      if (instructionType === 'jnz') {
+        const jnzPattern = /^jnz\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jnzPattern.exec(instruction);
+        if (!match) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JNZ must be followed by a valid label (e.g., JNZ LOOP)`,
+            type: 'syntax'
+          });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
+        }
+      }
+
+      // ===== JZ ====== (Jump if result zero)
+      if (instructionType === 'jz') {
+        const jzPattern = /^jz\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jzPattern.exec(instruction);
+        if (!match) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JZ must be followed by a valid label (e.g., JZ LOOP)`,
+            type: 'syntax'
+          });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
+        }
+      }
+
+      // ===== JNC ====== (Jump if no carry)
+      if (instructionType === 'jnc') {
+        const jncPattern = /^jnc\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jncPattern.exec(instruction);
+        if (!match) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JNC must be followed by a valid label (e.g., JNC LOOP)`,
+            type: 'syntax'
+          });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
+        }
+      }
+
       //Raven
             // === JP === (Jump if Positive)
       if (instructionType === 'jp') {
-        const jpPattern = /^jp\s+[a-z_][a-z0-9_]*$/i;
-        if (!jpPattern.test(instruction)) {
+        const jpPattern = /^jp\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jpPattern.exec(instruction);
+        if (!match) {
           validationErrors.push({
             line: index,
             message: `Line ${index + 1}: JP must be followed by a valid label (e.g., JP LOOP)`,
             type: 'syntax'
           });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
         }
       }
 
       // === JM === (Jump if Minus)
       if (instructionType === 'jm') {
-        const jmPattern = /^jm\s+[a-z_][a-z0-9_]*$/i;
-        if (!jmPattern.test(instruction)) {
+        const jmPattern = /^jm\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jmPattern.exec(instruction);
+        if (!match) {
           validationErrors.push({
             line: index,
             message: `Line ${index + 1}: JM must be followed by a valid label (e.g., JM LOOP)`,
             type: 'syntax'
-
           });
-        }}
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
+        }
+      }
         
         // Check MOV instruction format
         if (instructionType === 'mov') {
@@ -209,13 +341,23 @@ export default function InstructionInput() {
 
       // === JC === (Jump if Carry)
       if (instructionType === 'jc') {
-        const jcPattern = /^jc\s+[a-z_][a-z0-9_]*$/i;
-        if (!jcPattern.test(instruction)) {
+        const jcPattern = /^jc\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jcPattern.exec(instruction);
+        if (!match) {
           validationErrors.push({
             line: index,
             message: `Line ${index + 1}: JC must be followed by a valid label (e.g., JC LOOP)`,
             type: 'syntax'
           });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
         }
       }
 
