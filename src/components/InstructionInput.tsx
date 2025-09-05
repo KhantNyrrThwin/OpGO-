@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { AlertCircle, X } from 'lucide-react';
 import { useFileContext } from '../contexts/FileContext';
+import { parseLabels } from '../functions/parseLabels';
 
 interface ValidationError {
   line: number;
@@ -17,12 +18,13 @@ export default function InstructionInput() {
   const [showErrors, setShowErrors] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { setHasUnsavedChanges } = useFileContext();
+  const labelMap = parseLabels(instructions);
 
   const lines = instructions.split('\n');
 
   // Function to validate all errors (for run button)
   const validateAllErrors = (): ValidationError[] => {
-    return validateInstructions(instructions);
+    return validateInstructions(instructions, labelMap);
   };
 
   // Expose validation function to parent components
@@ -58,7 +60,7 @@ export default function InstructionInput() {
   // Removed immediate semicolon validation; semicolons are validated on Run/Step
 
   // Full validation function for run button
-  const validateInstructions = (text: string): ValidationError[] => {
+  const validateInstructions = (text: string, labelMap: Record<string, number>): ValidationError[] => {
     const validationErrors: ValidationError[] = [];
     const instructionLines = text.split('\n');
     
@@ -67,9 +69,42 @@ export default function InstructionInput() {
       
       // Skip empty lines
       if (trimmedLine === '') return;
+
+      // Split label if present
+      const labelSplit = trimmedLine.split(':');
+      let instructionPart = trimmedLine;
+
+      if (labelSplit.length === 2) {
+        const label = labelSplit[0].trim();
+        const labelValid = /^[a-z_][a-z0-9_]*$/i.test(label);
+        if (!labelValid) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: Invalid label name "${label}"`,
+            type: 'syntax'
+          });
+        }
+
+        instructionPart = labelSplit[1].trim();
+        if (instructionPart === '') {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: Label must be followed by an instruction`,
+            type: 'syntax'
+          });
+          return;
+        }
+      } else if (labelSplit.length > 2) {
+        validationErrors.push({
+          line: index,
+          message: `Line ${index + 1}: Multiple colons found. Only one label allowed per line.`,
+          type: 'syntax'
+        });
+        return;
+      }
       
       // Check for semicolon
-      if (!trimmedLine.endsWith(';')) {
+      if (!instructionPart.endsWith(';')) {
         validationErrors.push({
           line: index,
           message: `Line ${index + 1}: Instruction must end with semicolon (;)`,
@@ -79,15 +114,15 @@ export default function InstructionInput() {
       
 
       // Check for valid instruction format
-      const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
+      const instruction = instructionPart.replace(/;$/, '').trim().toLowerCase();
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr', 'and', 'andi', 'or', 'divi', 'cmp', 'cpi'];
 
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr', 'and', 'andi', 'or', 'divi', 'cmp', 'cpi','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb'];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
         if (!validInstructions.includes(instructionType)) {          validationErrors.push({
             line: index,
-            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, DIVI, AND, ANDI, OR, ADDC, ADDI, SUB, SUBB`,
+            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: ${validInstructions}`,
             type: 'invalid_instruction'
           });
         }
@@ -142,46 +177,139 @@ export default function InstructionInput() {
             }
           }
         }
-        
-       
-
-
-        
-
+          
+      // ===== JMP ====== (Unconditional Jump)
       if (instructionType === 'jmp') {
-        const jmpPattern = /^jmp\s+[a-z_][a-z0-9_]*$/i;
-        if (!jmpPattern.test(instruction)) {
+        const jmpPattern = /^jmp\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jmpPattern.exec(instruction);
+        if (!match) {
           validationErrors.push({
             line: index,
             message: `Line ${index + 1}: JMP must be followed by a valid label (e.g., JMP LOOP)`,
             type: 'syntax'
           });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
         }
       }
+
+      // ===== JNZ ====== (Jump if result not zero)
+      if (instructionType === 'jnz') {
+        const jnzPattern = /^jnz\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jnzPattern.exec(instruction);
+        if (!match) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JNZ must be followed by a valid label (e.g., JNZ LOOP)`,
+            type: 'syntax'
+          });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
+        }
+      }
+
+      // ===== JZ ====== (Jump if result zero)
+      if (instructionType === 'jz') {
+        const jzPattern = /^jz\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jzPattern.exec(instruction);
+        if (!match) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JZ must be followed by a valid label (e.g., JZ LOOP)`,
+            type: 'syntax'
+          });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
+        }
+      }
+
+      // ===== JNC ====== (Jump if no carry)
+      if (instructionType === 'jnc') {
+        const jncPattern = /^jnc\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jncPattern.exec(instruction);
+        if (!match) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JNC must be followed by a valid label (e.g., JNC LOOP)`,
+            type: 'syntax'
+          });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
+        }
+      }
+
       //Raven
             // === JP === (Jump if Positive)
       if (instructionType === 'jp') {
-        const jpPattern = /^jp\s+[a-z_][a-z0-9_]*$/i;
-        if (!jpPattern.test(instruction)) {
+        const jpPattern = /^jp\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jpPattern.exec(instruction);
+        if (!match) {
           validationErrors.push({
             line: index,
             message: `Line ${index + 1}: JP must be followed by a valid label (e.g., JP LOOP)`,
             type: 'syntax'
           });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
         }
       }
 
       // === JM === (Jump if Minus)
       if (instructionType === 'jm') {
-        const jmPattern = /^jm\s+[a-z_][a-z0-9_]*$/i;
-        if (!jmPattern.test(instruction)) {
+        const jmPattern = /^jm\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jmPattern.exec(instruction);
+        if (!match) {
           validationErrors.push({
             line: index,
             message: `Line ${index + 1}: JM must be followed by a valid label (e.g., JM LOOP)`,
             type: 'syntax'
-
           });
-        }}
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
+        }
+      }
         
         // Check MOV instruction format
         if (instructionType === 'mov') {
@@ -209,13 +337,23 @@ export default function InstructionInput() {
 
       // === JC === (Jump if Carry)
       if (instructionType === 'jc') {
-        const jcPattern = /^jc\s+[a-z_][a-z0-9_]*$/i;
-        if (!jcPattern.test(instruction)) {
+        const jcPattern = /^jc\s+([a-z_][a-z0-9_]*)$/i;
+        const match = jcPattern.exec(instruction);
+        if (!match) {
           validationErrors.push({
             line: index,
             message: `Line ${index + 1}: JC must be followed by a valid label (e.g., JC LOOP)`,
             type: 'syntax'
           });
+        } else {
+          const label = match[1].toLowerCase();
+          if (!(label in labelMap)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Label "${label}" not found`,
+              type: 'invalid_instruction'
+            });
+          }
         }
       }
 
@@ -311,6 +449,30 @@ export default function InstructionInput() {
           }
         }
       }
+
+      // === CPI === (Compare Immediate)
+if (instructionType === 'cpi') {
+  const cpiPattern = /^cpi\s+[0-9a-f]{2}h$/i;
+  if (!cpiPattern.test(instruction)) {
+    validationErrors.push({
+      line: index,
+      message: `Line ${index + 1}: CPI immediate must be two hex digits followed by 'H' (e.g., CPI 05H)`,
+      type: 'syntax'
+    });
+  }
+}
+
+// === CMP === (Compare Register)
+if (instructionType === 'cmp') {
+  const cmpPattern = /^cmp\s+[abcdehl]$/i;
+  if (!cmpPattern.test(instruction)) {
+    validationErrors.push({
+      line: index,
+      message: `Line ${index + 1}: CMP requires a valid register (A,B,C,D,E,H,L) (e.g., CMP B)`,
+      type: 'syntax'
+    });
+  }
+}
       //Raven
 
         if (instructionType === 'mul') {
@@ -336,151 +498,6 @@ export default function InstructionInput() {
             });
           }
         }
-
-        // === ADDC === (Add with Carry)
-        if (instructionType === 'addc') {
-          const addcPattern = /^addc\s+[abcdehl]$/i;
-          if (!addcPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: ADDC requires one register operand (e.g., ADDC B)`,
-                   type: 'syntax'
-            });
-          }
-        }
-
-          // === AND === (one register: AND A)
-          if (instructionType === 'and') {
-            // More flexible parsing for AND that handles cases with and without spaces
-            const andPattern = /^and\s*[abcdehl]$/i;
-            if (!andPattern.test(instruction)) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: AND requires a valid register (A,B,C,D,E,H,L)`,
-                type: 'syntax'
-              });
-            }
-          }
-
-         // === ANDI === (immediate hex: ANDI 0FH)
-         if (instructionType === 'andi') {
-          // More flexible parsing for ANDI that handles cases with and without spaces
-          const andiPattern = /^andi\s*[0-9a-f]{2}h$/i;
-          if (!andiPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: ANDI immediate must be two hex digits followed by 'H' (e.g., ANDI 0FH)`,
-              type: 'syntax'
-            });
-          }
-        }
-
-        // === OR === (one register: OR A)
-        if (instructionType === 'or') {
-          // More flexible parsing for OR that handles cases with and without spaces
-          const orPattern = /^or\s*[abcdehl]$/i;
-          if (!orPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: OR requires a valid register (A,B,C,D,E,H,L)`,
-              type: 'syntax'
-            });
-          }
-        }
-
-        // === ORI === (immediate hex: ORI 0FH)
-        if (instructionType === 'ori') {
-          // More flexible parsing for ORI that handles cases with and without spaces
-          const oriPattern = /^ori\s*[0-9a-f]{2}h$/i;
-          if (!oriPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: ORI immediate must be two hex digits followed by 'H' (e.g., ORI 0FH)`,
-              type:'syntax'});
-            }}
-                 
-        // === ADDI === (Add Immediate)
-        if (instructionType === 'addi') {
-          const addiPattern = /^addi\s+[0-9a-f]{2}h$/i;
-          if (!addiPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: ADDI requires immediate value (two hex digits + H) (e.g., ADDI 3FH)`,
-                     type: 'syntax'
-            });
-          }
-        }
-
-         // === XOR === (one register: XOR A)
-         if (instructionType === 'xor') {
-          // More flexible parsing for XOR that handles cases with and without spaces
-          const xorPattern = /^xor\s*[abcdehl]$/i;
-          if (!xorPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: XOR requires a valid register (A,B,C,D,E,H,L)`,
-              type:'syntax'});}}
-       
-        
-        // === SUB === (Subtract)
-        if (instructionType === 'sub') {
-          const subPattern = /^sub\s+[abcdehl]$/i;
-          if (!subPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: SUB requires one register operand (e.g., SUB B)`,
-                    type: 'syntax'
-            });
-          }
-        }
-
-
-        // === XORI === (immediate hex: XORI 0FH)
-        if (instructionType === 'xori') {
-          // More flexible parsing for XORI that handles cases with and without spaces
-          const xoriPattern = /^xori\s*[0-9a-f]{2}h$/i;
-          if (!xoriPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: XORI immediate must be two hex digits followed by 'H' (e.g., XORI 0FH)`,
-              type:'syntax'});}}
-
-        
-        // === SUBB === (Subtract with Borrow)
-        if (instructionType === 'subb') {
-          const subbPattern = /^subb\s+[abcdehl]$/i;
-          if (!subbPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: SUBB requires one register operand (e.g., SUBB B)`,
-                   type: 'syntax'
-            });
-          }
-        }
-
-
-            // === NOT === (no operands: NOT)
-            if (instructionType === 'not') {
-              // More flexible parsing for NOT that handles cases with and without spaces
-              const notPattern = /^not$/i;
-              if (!notPattern.test(instruction)) {
-                validationErrors.push({
-                  line: index,
-                  message: `Line ${index + 1}: NOT takes no operands`,
-                  type: 'syntax'
-                });
-              }
-            }
-
-             // === DIVI === (immediate hex: DIVI 05H)
-        if (instructionType === 'divi') {
-          // More flexible parsing for DIVI that handles cases with and without spaces
-          const diviPattern = /^divi\s*[0-9a-f]{2}h$/i;
-          if (!diviPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: DIVI immediate must be two hex digits followed by 'H' (e.g., DIVI 05H)`,
-              type:'syntax'});}}
       }
 
     });
