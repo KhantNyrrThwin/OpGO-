@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { gsap } from "gsap";
 import RegTitle from "../assets/Register Title.png"
 import type { Registers as RegistersType } from "../functions/types";
-
 
 interface RegisterData {
   A: [string, string];
@@ -24,10 +24,51 @@ export default function Registers() {
     L: ["0", "0"],
   });
 
+  // Refs to track previous values
+  const prevRegisters = useRef<RegisterData | null>(null);
+  
+  // Refs for GSAP animations
+  const registerRefs = useRef<{ [key: string]: HTMLDivElement | null }>({
+    A: null, B: null, C: null, D: null, E: null, H: null, L: null
+  });
+  
+  // Flag to prevent animations on first load
+  const isFirstLoad = useRef(true);
+
   useEffect(() => {
     const handleSetRegisters = (e: CustomEvent) => {
       const next: RegistersType = e.detail;
+      
+      // Skip animations on first load
+      if (isFirstLoad.current) {
+        isFirstLoad.current = false;
+        setRegisters(next as RegisterData);
+        prevRegisters.current = next as RegisterData;
+        return;
+      }
+      
+      // Check which registers changed and trigger enhanced animations
+      Object.keys(next).forEach((key) => {
+        const regKey = key as keyof RegisterData;
+        if (prevRegisters.current && 
+            (next[regKey][0] !== prevRegisters.current[regKey][0] || 
+             next[regKey][1] !== prevRegisters.current[regKey][1])) {
+          
+          const ref = registerRefs.current[key];
+          if (ref) {
+            gsap.to(ref, {
+              scale: 1.1,
+              duration: 0.5,
+              ease: "power2.out",
+              yoyo: true,
+              repeat: 1
+            });
+          }
+        }
+      });
+      
       setRegisters(next as RegisterData);
+      prevRegisters.current = next as RegisterData;
     };
 
     const handleRequestRegisters = () => {
@@ -65,7 +106,8 @@ export default function Registers() {
     isFullWidth?: boolean;
   }) => (
     <div 
-      className={`${isFullWidth ? 'w-full' : 'w-1/2'} h-20 flex items-center justify-center px-4 ${color} border-2 border-gray-300`}
+      ref={(el) => { registerRefs.current[letter] = el; }}
+      className={`${isFullWidth ? 'w-full' : 'w-1/2'} h-20 flex items-center justify-center px-4 ${color} border-2 border-gray-300 transition-colors duration-200`}
     >
       <span className="text-white text-4xl font-bold mr-6">{letter}</span>
       <div className="flex gap-3">
@@ -76,7 +118,7 @@ export default function Registers() {
             const val = e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 1);
             updateRegister(letter as keyof RegisterData, 0, val);
           }}
-          className="w-10 h-10 text-center text-white bg-transparent border-2 border-white rounded text-xl font-mono"
+          className="w-10 h-10 text-center text-white bg-transparent border-2 border-white rounded text-xl font-mono transition-colors duration-200 hover:bg-white/10"
           maxLength={1}
         />
         <input
@@ -86,7 +128,7 @@ export default function Registers() {
             const val = e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 1);
             updateRegister(letter as keyof RegisterData, 1, val);
           }}
-          className="w-10 h-10 text-center text-white bg-transparent border-2 border-white rounded text-xl font-mono"
+          className="w-10 h-10 text-center text-white bg-transparent border-2 border-white rounded text-xl font-mono transition-colors duration-200 hover:bg-white/10"
           maxLength={1}
         />
       </div>
@@ -96,7 +138,6 @@ export default function Registers() {
   return (
     <div className="bg-[#2c2c2c] h-full border-3 border-solid border-[#3F3F46] flex flex-col items-center justify-center p-3 pb-2 pt-0">
       <img src={RegTitle} className="w-45.5 h-[10%]" />
-
 
       <div className="w-full max-w-md space-y-2">
         <RegisterBlock 

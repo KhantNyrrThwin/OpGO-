@@ -58,15 +58,51 @@ export default function InstructionInput() {
   const validateInstructions = (text: string): ValidationError[] => {
     const validationErrors: ValidationError[] = [];
     const instructionLines = text.split('\n');
-    
+
     instructionLines.forEach((line, index) => {
       const trimmedLine = line.trim();
-      
+
       // Skip empty lines
       if (trimmedLine === '') return;
-      
+
+      // Skip comment lines
+      if (trimmedLine.startsWith('//')) return;
+
+      // Split label if present
+      const labelSplit = trimmedLine.split(':');
+      let instructionPart = trimmedLine;
+
+      if (labelSplit.length === 2) {
+        const label = labelSplit[0].trim();
+        const labelValid = /^[a-z_][a-z0-9_]*$/i.test(label);
+        if (!labelValid) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: Invalid label name "${label}"`,
+            type: 'syntax'
+          });
+        }
+
+        instructionPart = labelSplit[1].trim();
+        if (instructionPart === '') {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: Label must be followed by an instruction`,
+            type: 'syntax'
+          });
+          return;
+        }
+      } else if (labelSplit.length > 2) {
+        validationErrors.push({
+          line: index,
+          message: `Line ${index + 1}: Multiple colons found. Only one label allowed per line.`,
+          type: 'syntax'
+        });
+        return;
+      }
+
       // Check for semicolon
-      if (!trimmedLine.endsWith(';')) {
+      if (!instructionPart.endsWith(';')) {
         validationErrors.push({
           line: index,
           message: `Line ${index + 1}: Instruction must end with semicolon (;)`,
@@ -76,7 +112,7 @@ export default function InstructionInput() {
       
       // Normalize instruction (remove semicolon)
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'divi','and', 'andi', 'or'];
+      const validInstructions = ['mov', 'mvi', 'divi','and', 'andi', 'or', 'jmp', 'jnz', 'jz', 'jnc'];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
@@ -331,17 +367,38 @@ export default function InstructionInput() {
               }
             }
           }
+
+
+    
+
+      if (instructionType === 'jmp') {
+        const jmpPattern = /^jmp\s+[a-z_][a-z0-9_]*$/i;
+        if (!jmpPattern.test(instruction)) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JMP must be followed by a valid label (e.g., JMP LOOP)`,
+            type: 'syntax'
+          });
+        }
+      }
+
+      if (instructionType === 'jnz') {
+        const jnzPattern = /^jnz\s+[a-z_][a-z0-9_]*$/i;
+        if (!jnzPattern.test(instruction)) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JNZ must be followed by a valid label (e.g., JNZ LOOP)`,
+            type: 'syntax'
+          });
         }
       }
     });
-    
+
     return validationErrors;
   };
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
+    if (textareaRef.current) textareaRef.current.focus();
   }, []);
 
   useEffect(() => {
@@ -357,7 +414,6 @@ export default function InstructionInput() {
     const handleHighlightLine = (event: CustomEvent) => {
       const index = event.detail as number;
       setHighlightedLine(index);
-      // Auto-scroll the textarea to make the line visible
       if (textareaRef.current && index >= 0) {
         const linesUpToIndex = instructions.split('\n').slice(0, index).join('\n');
         const approxCharIndex = linesUpToIndex.length + 1;
@@ -385,9 +441,8 @@ export default function InstructionInput() {
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
 
-      const indent = '  '; 
-      const updatedValue =
-        instructions.substring(0, start) + indent + instructions.substring(end);
+      const indent = '  ';
+      const updatedValue = instructions.substring(0, start) + indent + instructions.substring(end);
 
       setInstructions(updatedValue);
 
@@ -419,26 +474,30 @@ export default function InstructionInput() {
               <Alert key={index} variant='destructive' className="text-sm">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle className="text-red-400">
-                  {error.type === 'semicolon' ? 'Missing Semicolon' : 
-                   error.type === 'syntax' ? 'Syntax Error' : 'Invalid Instruction'}
+                  {error.type === 'semicolon'
+                    ? 'Missing Semicolon'
+                    : error.type === 'syntax'
+                    ? 'Syntax Error'
+                    : 'Invalid Instruction'}
                 </AlertTitle>
-                <AlertDescription className="text-red-300">
-                  {error.message}
-                </AlertDescription>
+                <AlertDescription className="text-red-300">{error.message}</AlertDescription>
               </Alert>
             ))}
           </div>
         </div>
       )}
-      
+
       <div className="flex flex-row flex-1">
+
         <div className="bg-[#1f1f1f] text-gray-400 px-2 py-2 text-right select-none flex-shrink-0">
           {lines.map((_, index) => {
             const isActive = index === highlightedLine;
             return (
               <div
                 key={index}
-                className={`leading-[3rem] ${isActive ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : ''}`}
+                className={`leading-[3rem] ${
+                  isActive ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : ''
+                }`}
               >
                 {index + 1}
               </div>
@@ -446,7 +505,30 @@ export default function InstructionInput() {
           })}
         </div>
 
-        <div className="flex-grow relative">
+
+        {/* Code Editor */}
+        <div className="flex-grow relative font-mono">
+          {/* Highlighted code overlay */}
+          <pre
+            className="absolute top-0 left-0 w-full h-full p-2 pointer-events-none whitespace-pre leading-[3rem]"
+            style={{ color: 'transparent' }}
+          >
+            {lines.map((line, index) => {
+              const isComment = line.trim().startsWith('//');
+              const isActive = index === highlightedLine;
+              return (
+                <div
+                  key={index}
+                  className={`${isActive ? 'bg-blue-500/20' : ''}`}
+                  style={{ color: isComment ? '#00ff00' : 'white' }}
+                >
+                  {line || ' '}
+                </div>
+              );
+            })}
+          </pre>
+
+          {/* Actual textarea */}
           <textarea
             ref={textareaRef}
             spellCheck={false}
@@ -460,8 +542,8 @@ export default function InstructionInput() {
             }}
             onKeyDown={handleKeyDown}
             placeholder="Type your instructions here."
-            className="w-full h-full bg-transparent p-2 resize-none outline-none leading-[3rem] whitespace-pre relative z-10"
-            style={{ lineHeight: '3rem' }}
+            className="w-full h-full bg-transparent p-2 resize-none outline-none relative z-10 leading-[3rem] whitespace-pre"
+            style={{ lineHeight: '3rem', color: 'white' }}
           />
           {highlightedLine >= 0 && (
             <div 
@@ -472,6 +554,7 @@ export default function InstructionInput() {
               }}
             />
           )}
+
         </div>
       </div>
     </div>
