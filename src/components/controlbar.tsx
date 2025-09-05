@@ -7,6 +7,10 @@ import { executeJMP } from '../functions/jmp';
 import { executeJNZ } from '../functions/jnz';
 import { executeJZ } from '../functions/jz';
 import { executeJNC } from '../functions/jnc';
+import { executeSUBI } from '../functions/subi';
+import { executeMULI } from '../functions/muli';
+import { executeMUL} from '../functions/mul';
+import { executeDIV } from '../functions/div';
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -196,6 +200,18 @@ export default function ControlBar() {
               return; // Skip incrementing line
             }
             break;
+          case 'subi':
+            result = executeSUBI(nextInstruction, regs, cpuFlags);
+          break;
+          case 'muli':
+              result = executeMULI(nextInstruction, regs, cpuFlags);
+              break;
+          case 'mul':
+          result = executeMUL(nextInstruction, regs, cpuFlags);
+          break;  
+          case 'div':
+            result = executeDIV(nextInstruction, regs, cpuFlags);
+            break;
         default:
           result = executeMVI(nextInstruction, regs, cpuFlags);
           break;
@@ -326,6 +342,18 @@ export default function ControlBar() {
                 await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
                 continue; // Skip incrementing line
               }
+              break;
+            case 'subi':
+              result = executeSUBI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'muli':
+              result = executeMULI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'mul':
+              result = executeMUL(nextInstruction, regs, cpuFlags);
+            break;
+            case 'div':
+              result = executeDIV(nextInstruction, regs, cpuFlags);
               break;
             default:
               result = executeMVI(nextInstruction, regs, cpuFlags);
