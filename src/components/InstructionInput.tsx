@@ -78,7 +78,7 @@ export default function InstructionInput() {
       
       // Check for valid instruction format
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul'];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div'];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
@@ -142,6 +142,18 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: MUL instruction must be in the form MUL reg (e.g., MUL B) where reg is A, B, C, D, E, H, or L.`,
+              type: 'syntax'
+            });
+          }
+        }
+
+        if (instructionType === 'div') {
+          // DIV reg (reg must be one of A, B, C, D, E, H, L)
+          const divPattern = /^div\s+[abcdehl]$/i;
+          if (!divPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DIV instruction must be in the form DIV reg (e.g., DIV B) where reg is A, B, C, D, E, H, or L.`,
               type: 'syntax'
             });
           }

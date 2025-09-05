@@ -10,6 +10,7 @@ import { executeJNC } from '../functions/jnc';
 import { executeSUBI } from '../functions/subi';
 import { executeMULI } from '../functions/muli';
 import { executeMUL} from '../functions/mul';
+import { executeDIV } from '../functions/div';
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -208,6 +209,9 @@ export default function ControlBar() {
           case 'mul':
           result = executeMUL(nextInstruction, regs, cpuFlags);
           break;  
+          case 'div':
+            result = executeDIV(nextInstruction, regs, cpuFlags);
+            break;
         default:
           result = executeMVI(nextInstruction, regs, cpuFlags);
           break;
@@ -348,6 +352,9 @@ export default function ControlBar() {
             case 'mul':
               result = executeMUL(nextInstruction, regs, cpuFlags);
             break;
+            case 'div':
+              result = executeDIV(nextInstruction, regs, cpuFlags);
+              break;
             default:
               result = executeMVI(nextInstruction, regs, cpuFlags);
               break;
