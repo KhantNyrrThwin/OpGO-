@@ -3,6 +3,14 @@ import { FolderIcon, PlayIcon } from '@heroicons/react/24/solid';
 import { useFileContext } from '../contexts/FileContext';
 import { executeMVI } from '../functions/mvi';
 import { executeMOV } from '../functions/mov';
+import { executeDIVI } from '../functions/divi';
+import { executeAND } from '../functions/and';
+import { executeANDI } from '../functions/andi';
+import { executeOR } from '../functions/or';
+import { executeORI } from '../functions/ori';
+import { executeXOR } from '../functions/xor';
+import { executeXORI } from '../functions/xori';
+import { executeNOT } from '../functions/not';
 import { executeJMP } from '../functions/jmp';
 import { executeJNZ } from '../functions/jnz';
 import { executeJZ } from '../functions/jz';
@@ -20,6 +28,8 @@ import { executeADDC } from '../functions/addc';
 import { executeADDI } from '../functions/addi';
 import { executeSUB } from '../functions/sub';
 import { executeSUBB } from '../functions/subb';
+import { executeCMP } from '../functions/cmp';
+import { executeCPI } from '@/functions/cpi';
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -209,7 +219,7 @@ export default function ControlBar() {
               return; // Skip incrementing line
             }
             break;
-        
+
 //Raven
 case 'jc':
   result = executeJC(nextInstruction, regs, cpuFlags, labelMap);
@@ -242,6 +252,12 @@ case 'jc':
   }
   break;
   //Raven
+  case 'cmp':
+    result = executeCMP(nextInstruction, regs, cpuFlags);
+    break;
+case 'cpi':
+    result = executeCPI(nextInstruction, regs, cpuFlags);
+    break;
   //Raven
   case 'inr':
     result = executeINR(nextInstruction, regs, cpuFlags);
@@ -276,6 +292,31 @@ case 'jc':
           case 'subb':
             result = executeSUBB(nextInstruction, regs, cpuFlags);
             break;
+          case 'divi':
+            result = executeDIVI(nextInstruction, regs, cpuFlags);
+            break;
+          case 'and':
+            result = executeAND(nextInstruction, regs, cpuFlags);
+            break;
+          case 'andi':
+            result = executeANDI(nextInstruction, regs, cpuFlags);
+            break;
+          case 'or':
+            result = executeOR(nextInstruction, regs, cpuFlags);
+            break;
+          case 'ori':
+            result = executeORI(nextInstruction, regs, cpuFlags);
+            break;
+          case 'not':
+            result = executeNOT(nextInstruction, regs, cpuFlags);
+            break;
+          case 'xor':
+            result = executeXOR(nextInstruction, regs, cpuFlags);
+            break;
+          case 'xori':
+            result = executeXORI(nextInstruction, regs, cpuFlags);
+            break;
+
         default:
           result = executeMVI(nextInstruction, regs, cpuFlags);
           break;
@@ -450,6 +491,13 @@ case 'jc':
             result = executeDCR(nextInstruction, regs, cpuFlags);
             break;
             //Raven
+            case 'cmp':
+            result = executeCMP(nextInstruction, regs, cpuFlags);
+            // No jump handling needed for CMP - it just updates flags
+            break;
+            case 'cpi':
+            result = executeCPI(nextInstruction, regs, cpuFlags);
+            break;
             //Raven
             case 'subi':
               result = executeSUBI(nextInstruction, regs, cpuFlags);
@@ -475,6 +523,31 @@ case 'jc':
             case 'subb':
               result = executeSUBB(nextInstruction, regs, cpuFlags);
               break;
+            case 'divi':
+              result = executeDIVI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'and':
+              result = executeAND(nextInstruction, regs, cpuFlags);
+              break;
+            case 'andi':
+              result = executeANDI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'or':
+              result = executeOR(nextInstruction, regs, cpuFlags);
+              break;
+            case 'ori':
+              result = executeORI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'not':
+              result = executeNOT(nextInstruction, regs, cpuFlags);
+              break;
+            case 'xor':
+              result = executeXOR(nextInstruction, regs, cpuFlags);
+              break;
+            case 'xori':
+              result = executeXORI(nextInstruction, regs, cpuFlags);
+              break;
+
             default:
               result = executeMVI(nextInstruction, regs, cpuFlags);
               break;
