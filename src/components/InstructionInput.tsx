@@ -112,7 +112,7 @@ export default function InstructionInput() {
       
       // Normalize instruction (remove semicolon)
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'divi','and', 'andi', 'or', 'jmp', 'jnz', 'jz', 'jnc'];
+      const validInstructions = ['mov', 'mvi', 'divi','and', 'andi', 'or', 'jmp', 'jnz', 'jz', 'jnc', 'jp', 'jm', 'jc', 'inr', 'dcr'];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
@@ -366,11 +366,7 @@ export default function InstructionInput() {
                 });
               }
             }
-          }
-
-
-    
-
+          }}
       if (instructionType === 'jmp') {
         const jmpPattern = /^jmp\s+[a-z_][a-z0-9_]*$/i;
         if (!jmpPattern.test(instruction)) {
@@ -381,6 +377,115 @@ export default function InstructionInput() {
           });
         }
       }
+      //Raven
+            // === JP === (Jump if Positive)
+      if (instructionType === 'jp') {
+        const jpPattern = /^jp\s+[a-z_][a-z0-9_]*$/i;
+        if (!jpPattern.test(instruction)) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JP must be followed by a valid label (e.g., JP LOOP)`,
+            type: 'syntax'
+          });
+        }
+      }
+
+      // === JM === (Jump if Minus)
+      if (instructionType === 'jm') {
+        const jmPattern = /^jm\s+[a-z_][a-z0-9_]*$/i;
+        if (!jmPattern.test(instruction)) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JM must be followed by a valid label (e.g., JM LOOP)`,
+            type: 'syntax'
+          });
+        }
+      }
+
+      // === JC === (Jump if Carry)
+      if (instructionType === 'jc') {
+        const jcPattern = /^jc\s+[a-z_][a-z0-9_]*$/i;
+        if (!jcPattern.test(instruction)) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: JC must be followed by a valid label (e.g., JC LOOP)`,
+            type: 'syntax'
+          });
+        }
+      }
+
+      // === INR === (Increment Register)
+      if (instructionType === 'inr') {
+        const parts = instruction.split(/\s+/);
+        if (parts.length < 2) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: INR requires a register`,
+            type: 'syntax'
+          });
+        } else if (parts.length > 2) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: INR has too many operands`,
+            type: 'syntax'
+          });
+        } else {
+          // Check if the operand contains a comma (indicating multiple operands)
+          if (parts[1].includes(',')) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: INR only takes one register (e.g., INR A)`,
+              type: 'syntax'
+            });
+          } else {
+            const inrPattern = /^inr\s+[abcdehl]$/i;
+            if (!inrPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: INR requires a valid register (A,B,C,D,E,H,L)`,
+                type: 'syntax'
+              });
+            }
+          }
+        }
+      }
+
+      // === DCR === (Decrement Register)
+      if (instructionType === 'dcr') {
+        const parts = instruction.split(/\s+/);
+        if (parts.length < 2) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: DCR requires a register`,
+            type: 'syntax'
+          });
+        } else if (parts.length > 2) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: DCR has too many operands`,
+            type: 'syntax'
+          });
+        } else {
+          // Check if the operand contains a comma (indicating multiple operands)
+          if (parts[1].includes(',')) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DCR only takes one register (e.g., DCR A)`,
+              type: 'syntax'
+            });
+          } else {
+            const dcrPattern = /^dcr\s+[abcdehl]$/i;
+            if (!dcrPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: DCR requires a valid register (A,B,C,D,E,H,L)`,
+                type: 'syntax'
+              });
+            }
+          }
+        }
+      }
+      //Raven
 
       if (instructionType === 'jnz') {
         const jnzPattern = /^jnz\s+[a-z_][a-z0-9_]*$/i;
@@ -392,7 +497,9 @@ export default function InstructionInput() {
           });
         }
       }
-    });
+    }});
+
+    
 
     return validationErrors;
   };

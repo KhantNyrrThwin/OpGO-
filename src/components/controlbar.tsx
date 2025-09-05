@@ -7,14 +7,21 @@ import { executeDIVI } from '../functions/divi';
 import { executeAND } from '../functions/and';
 import { executeANDI } from '../functions/andi';
 import { executeOR } from '../functions/or';
-import { executeORI } from '../functions/ori'; // Added
+/**import { executeORI } from '../functions/ori'; // Added
 import { executeNOT } from '../functions/not'; // Added
 import { executeXOR } from '../functions/xor'; // Added
-import { executeXORI } from '../functions/xori'; // Added
+import { executeXORI } from '../functions/xori'; // Added*/
 import { executeJMP } from '../functions/jmp';
 import { executeJNZ } from '../functions/jnz';
 import { executeJZ } from '../functions/jz';
 import { executeJNC } from '../functions/jnc';
+
+import { executeJM } from '../functions/jm';
+import { executeJP } from '../functions/jp';
+import { executeJC } from '../functions/jc';
+import { executeINR } from '../functions/inr';
+import { executeDCR } from '../functions/dcr';
+
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -161,83 +168,128 @@ export default function ControlBar() {
     let result;
 
     // Use switch on mnemonic (opcode)
-    {
-      const opcode = nextInstruction.split(' ')[0].toLowerCase();
-      switch (opcode) {
-        case 'mov':
-          result = executeMOV(nextInstruction, regs, flags);
-          break;
-        case 'jmp':
-            result = executeJMP(nextInstruction, regs, flags, labelMap);
-            if (result.jumpTo !== undefined) {
-              currentLineRef.current = result.jumpTo;
-              setCpuFlags(result.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-              return; // Skip incrementing line
-            }
-            break;
-        case 'jnz':
-            result = executeJNZ(nextInstruction, regs, flags, labelMap);
-            if (result.jumpTo !== undefined) {
-              currentLineRef.current = result.jumpTo;
-              setCpuFlags(result.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-              return; // Skip incrementing line
-            }
-            break;
-        case 'jz':
-            result = executeJZ(nextInstruction, regs, flags, labelMap);
-            if (result.jumpTo !== undefined) {
-              currentLineRef.current = result.jumpTo;
-              setCpuFlags(result.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-              return; // Skip incrementing line
-            }
-            break;
-        case 'jnc':
-            result = executeJNC(nextInstruction, regs, flags, labelMap);
-            if (result.jumpTo !== undefined) {
-              currentLineRef.current = result.jumpTo;
-              setCpuFlags(result.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-              return; // Skip incrementing line
-            }
-            break;
-        case 'divi':
-          result = executeDIVI(nextInstruction, regs, flags);
-          break;
-        case 'and':
-          result = executeAND(nextInstruction, regs, flags);
-          break;
-        case 'andi':
-          result = executeANDI(nextInstruction, regs, flags);
-          break;
-        case 'or':
-          result = executeOR(nextInstruction, regs, flags);
-          break;
-        case 'ori': // Added in Run logic, ensuring it's here too
-          result = executeORI(nextInstruction, regs, flags);
-          break;
-        case 'not': // Added in Run logic, ensuring it's here too
-          result = executeNOT(nextInstruction, regs, flags);
-          break;
-        case 'xor': // Added in Run logic, ensuring it's here too
-          result = executeXOR(nextInstruction, regs, flags);
-          break;
-        case 'xori': // Added in Run logic, ensuring it's here too
-          result = executeXORI(nextInstruction, regs, flags);
-          break;
-        default:
-          result = executeMVI(nextInstruction, regs, flags);
-          break;
-      }
-    }
+        {
+    const opcode = nextInstruction.split(' ')[0].toLowerCase();
+    switch (opcode) {
+        case 'mov':
+        result = executeMOV(nextInstruction, regs, flags);
+        break;
+        case 'jmp':
+        result = executeJMP(nextInstruction, regs, flags, labelMap);
+        if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+        }
+        break;
+
+        //Raven
+        case 'jc':
+        result = executeJC(nextInstruction, regs, flags, labelMap);
+        if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+        }
+        break;
+        case 'jm':
+        result = executeJM(nextInstruction, regs, flags, labelMap);
+        if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+        }
+        break;
+        case 'jp':
+        result = executeJP(nextInstruction, regs, flags, labelMap);
+        if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+        }
+        break;
+        //Raven
+        
+        case 'jnz':
+        result = executeJNZ(nextInstruction, regs, flags, labelMap);
+        if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+        }
+        break;
+        case 'jz':
+        result = executeJZ(nextInstruction, regs, flags, labelMap);
+        if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+        }
+        break;
+        case 'jnc':
+        result = executeJNC(nextInstruction, regs, flags, labelMap);
+        if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+        }
+        break;
+
+        //Raven
+        case 'inr':
+        result = executeINR(nextInstruction, regs, flags);
+        break;
+        case 'dcr':
+        result = executeDCR(nextInstruction, regs, flags);
+        break;
+        //Raven
+        
+        case 'divi':
+        result = executeDIVI(nextInstruction, regs, flags);
+        break;
+        case 'and':
+        result = executeAND(nextInstruction, regs, flags);
+        break;
+        case 'andi':
+        result = executeANDI(nextInstruction, regs, flags);
+        break;
+        case 'or':
+        result = executeOR(nextInstruction, regs, flags);
+        break;
+        /*case 'ori': // Added in Run logic, ensuring it's here too
+        result = executeORI(nextInstruction, regs, flags);
+        break;
+        case 'not': // Added in Run logic, ensuring it's here too
+        result = executeNOT(nextInstruction, regs, flags);
+        break;
+        case 'xor': // Added in Run logic, ensuring it's here too
+        result = executeXOR(nextInstruction, regs, flags);
+        break;
+        case 'xori': // Added in Run logic, ensuring it's here too
+        result = executeXORI(nextInstruction, regs, flags);
+        break;*/
+        default:
+        result = executeMVI(nextInstruction, regs, flags);
+        break;
+    }
+    }
 
     const { registers: newRegs, flags: newFlags } = result;
+
     setCpuFlags(newFlags);
 
     window.dispatchEvent(new CustomEvent('setRegisters', { detail: newRegs }));
@@ -281,7 +333,7 @@ export default function ControlBar() {
 
     // Auto-step through all instructions
     const autoStep = async () => {
-      let currentRegs = initialRegisters;
+      var currentRegs = initialRegisters;
       let currentFlags = initialFlags;
 
       while (isRunningRef.current && currentLineRef.current < rawLines.length) {
@@ -306,92 +358,142 @@ export default function ControlBar() {
         
         let result;
         // Use switch on mnemonic (opcode)
-        {
-          const opcode = nextInstruction.split(' ')[0].toLowerCase();
-          switch (opcode) {
-            case 'mov':
-              result = executeMOV(nextInstruction, currentRegs, currentFlags);
-              break;
-            case 'jmp':
-              result = executeJMP(nextInstruction, currentRegs, currentFlags, labelMap);
-              if (result.jumpTo !== undefined) {
-                currentLineRef.current = result.jumpTo;
-                currentFlags = result.flags;
-                setCpuFlags(result.flags);
-                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
-                continue; // Skip incrementing line
-              }
-              break;
-            case 'jnz':
-              result = executeJNZ(nextInstruction, currentRegs, currentFlags, labelMap);
-              if (result.jumpTo !== undefined) {
-                currentLineRef.current = result.jumpTo;
-                currentFlags = result.flags;
-                setCpuFlags(result.flags);
-                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
-                continue; // Skip incrementing line
-              }
-              break;
-            case 'jz':
-              result = executeJZ(nextInstruction, currentRegs, currentFlags, labelMap);
-              if (result.jumpTo !== undefined) {
-                currentLineRef.current = result.jumpTo;
-                currentFlags = result.flags;
-                setCpuFlags(result.flags);
-                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
-                continue; // Skip incrementing line
-              }
-              break;
-            case 'jnc':
-              result = executeJNC(nextInstruction, currentRegs, currentFlags, labelMap);
-              if (result.jumpTo !== undefined) {
-                currentLineRef.current = result.jumpTo;
-                currentFlags = result.flags;
-                setCpuFlags(result.flags);
-                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
-                continue; // Skip incrementing line
-              }
-              break;
-            case 'divi':
-              result = executeDIVI(nextInstruction, currentRegs, currentFlags);
-              break;
-            case 'and':
-              result = executeAND(nextInstruction, currentRegs, currentFlags);
-              break;
-            case 'andi':
-              result = executeANDI(nextInstruction, currentRegs, currentFlags);
-              break;
-            case 'or':
-              result = executeOR(nextInstruction, currentRegs, currentFlags);
-              break;
-            case 'ori':
-              result = executeORI(nextInstruction, currentRegs, currentFlags);
-              break;
-            case 'not':
-              result = executeNOT(nextInstruction, currentRegs, currentFlags);
-              break;
-            case 'xor':
-              result = executeXOR(nextInstruction, currentRegs, currentFlags);
-              break;
-            case 'xori':
-              result = executeXORI(nextInstruction, currentRegs, currentFlags);
-              break;
-            default:
-              result = executeMVI(nextInstruction, currentRegs, currentFlags);
-              break;
-          }
-        }
+        {
+        const opcode = nextInstruction.split(' ')[0].toLowerCase();
+        switch (opcode) {
+            case 'mov':
+            result = executeMOV(nextInstruction, currentRegs, currentFlags);
+            break;
+            case 'jmp':
+            result = executeJMP(nextInstruction, currentRegs, currentFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                continue; // Skip incrementing line
+            }
+            break;
+
+            //Raven
+            case 'jc':
+            result = executeJC(nextInstruction, currentRegs, currentFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                continue; // Skip incrementing line
+            }
+            break;
+            case 'jm':
+            result = executeJM(nextInstruction, currentRegs, currentFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                continue; // Skip incrementing line
+            }
+            break;
+            case 'jp':
+            result = executeJP(nextInstruction, currentRegs, currentFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                continue; // Skip incrementing line
+            }
+            break;
+            //Raven
+
+            case 'jnz':
+            result = executeJNZ(nextInstruction, currentRegs, currentFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                continue; // Skip incrementing line
+            }
+            break;
+            case 'jz':
+            result = executeJZ(nextInstruction, currentRegs, currentFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                continue; // Skip incrementing line
+            }
+            break;
+            case 'jnc':
+            result = executeJNC(nextInstruction, currentRegs, currentFlags, labelMap);
+            if (result.jumpTo !== undefined) {
+                currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                continue; // Skip incrementing line
+            }
+            break;
+
+            //Raven
+            case 'inr':
+            result = executeINR(nextInstruction, currentRegs, currentFlags);
+            break;
+            case 'dcr':
+            result = executeDCR(nextInstruction, currentRegs, currentFlags);
+            break;
+            //Raven
+
+            case 'divi':
+            result = executeDIVI(nextInstruction, currentRegs, currentFlags);
+            break;
+            case 'and':
+            result = executeAND(nextInstruction, currentRegs, currentFlags);
+            break;
+            case 'andi':
+            result = executeANDI(nextInstruction, currentRegs, currentFlags);
+            break;
+            case 'or':
+            result = executeOR(nextInstruction, currentRegs, currentFlags);
+            break;
+            /*case 'ori':
+            result = executeORI(nextInstruction, currentRegs, currentFlags);
+            break;
+            case 'not':
+            result = executeNOT(nextInstruction, currentRegs, currentFlags);
+            break;
+            case 'xor':
+            result = executeXOR(nextInstruction, currentRegs, currentFlags);
+            break;
+            case 'xori':
+            result = executeXORI(nextInstruction, currentRegs, currentFlags);
+            break;*/
+            default:
+            result = executeMVI(nextInstruction, currentRegs, currentFlags);
+            break;
+        }
+    }
 
         const { registers: newRegs, flags: newFlags } = result;
-        currentRegs = newRegs;
+        //currentRegs = newRegs;
         currentFlags = newFlags;
         setCpuFlags(newFlags);
         window.dispatchEvent(new CustomEvent('setRegisters', { detail: newRegs }));
@@ -476,7 +578,7 @@ export default function ControlBar() {
 
       {/* Action Buttons Styled Like Image */}
       <div className="flex items-center gap-4">
-        {/* Stop Button */}
+         {/* Stop Button */}
         <button className="bg-red-600 hover:bg-red-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleStop}>
           <div className="bg-white w-3.5 h-3.5" />
         </button>
