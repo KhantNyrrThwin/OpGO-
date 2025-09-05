@@ -80,13 +80,14 @@ export default function InstructionInput() {
 
       // Check for valid instruction format
       const instruction = trimmedLine.replace(';', '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr', 'and', 'andi', 'or', 'divi', 'cmp', 'cpi','ori','xor','xori','not'];
+
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr', 'and', 'andi', 'or', 'divi', 'cmp', 'cpi','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb'];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
         if (!validInstructions.includes(instructionType)) {          validationErrors.push({
             line: index,
-            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, DIVI, AND, ANDI, OR`,
+            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: MOV, MVI, DIVI, AND, ANDI, OR, ADDC, ADDI, SUB, SUBB`,
             type: 'invalid_instruction'
           });
         }
@@ -336,6 +337,18 @@ export default function InstructionInput() {
           }
         }
 
+        // === ADDC === (Add with Carry)
+        if (instructionType === 'addc') {
+          const addcPattern = /^addc\s+[abcdehl]$/i;
+          if (!addcPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ADDC requires one register operand (e.g., ADDC B)`,
+                   type: 'syntax'
+            });
+          }
+        }
+
           // === AND === (one register: AND A)
           if (instructionType === 'and') {
             // More flexible parsing for AND that handles cases with and without spaces
@@ -383,7 +396,15 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: ORI immediate must be two hex digits followed by 'H' (e.g., ORI 0FH)`,
-              type: 'syntax'
+                 
+        // === ADDI === (Add Immediate)
+        if (instructionType === 'addi') {
+          const addiPattern = /^addi\s+[0-9a-f]{2}h$/i;
+          if (!addiPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ADDI requires immediate value (two hex digits + H) (e.g., ADDI 3FH)`,
+                     type: 'syntax'
             });
           }
         }
@@ -396,10 +417,20 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: XOR requires a valid register (A,B,C,D,E,H,L)`,
-              type: 'syntax'
+       
+        
+        // === SUB === (Subtract)
+        if (instructionType === 'sub') {
+          const subPattern = /^sub\s+[abcdehl]$/i;
+          if (!subPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: SUB requires one register operand (e.g., SUB B)`,
+                    type: 'syntax'
             });
           }
         }
+
 
         // === XORI === (immediate hex: XORI 0FH)
         if (instructionType === 'xori') {
@@ -409,10 +440,20 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: XORI immediate must be two hex digits followed by 'H' (e.g., XORI 0FH)`,
-              type: 'syntax'
+        
+        
+        // === SUBB === (Subtract with Borrow)
+        if (instructionType === 'subb') {
+          const subbPattern = /^subb\s+[abcdehl]$/i;
+          if (!subbPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: SUBB requires one register operand (e.g., SUBB B)`,
+                   type: 'syntax'
             });
           }
         }
+
 
             // === NOT === (no operands: NOT)
             if (instructionType === 'not') {
@@ -435,12 +476,7 @@ export default function InstructionInput() {
             validationErrors.push({
               line: index,
               message: `Line ${index + 1}: DIVI immediate must be two hex digits followed by 'H' (e.g., DIVI 05H)`,
-              type: 'syntax'
-            });
-          }
-        }
-
-
+         
       }
 
     });

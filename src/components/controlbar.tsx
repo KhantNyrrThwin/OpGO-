@@ -24,6 +24,10 @@ import { executeDCR } from '../functions/dcr';
 import { executeMULI } from '../functions/muli';
 import { executeMUL} from '../functions/mul';
 import { executeDIV } from '../functions/div';
+import { executeADDC } from '../functions/addc';
+import { executeADDI } from '../functions/addi';
+import { executeSUB } from '../functions/sub';
+import { executeSUBB } from '../functions/subb';
 import { executeCMP } from '../functions/cmp';
 import { executeCPI } from '@/functions/cpi';
 import { parseLabels } from '../functions/parseLabels';
@@ -215,7 +219,7 @@ export default function ControlBar() {
               return; // Skip incrementing line
             }
             break;
-          
+
 //Raven
 case 'jc':
   result = executeJC(nextInstruction, regs, cpuFlags, labelMap);
@@ -274,6 +278,20 @@ case 'cpi':
           case 'div':
             result = executeDIV(nextInstruction, regs, cpuFlags);
             break;
+          //act
+          case 'addc':
+            result = executeADDC(nextInstruction, regs, cpuFlags);
+            console.log("ADDC result:", result);
+            break;
+          case 'addi':
+            result = executeADDI(nextInstruction, regs, cpuFlags);
+            break;
+          case 'sub':
+            result = executeSUB(nextInstruction, regs, cpuFlags);
+            break;
+          case 'subb':
+            result = executeSUBB(nextInstruction, regs, cpuFlags);
+            break;
           case 'divi':
             result = executeDIVI(nextInstruction, regs, cpuFlags);
             break;
@@ -303,6 +321,7 @@ case 'cpi':
           result = executeMVI(nextInstruction, regs, cpuFlags);
           break;
       }
+      
     }
 
     const { registers: newRegs, flags: newFlags } = result;
@@ -491,6 +510,18 @@ case 'cpi':
             break;
             case 'div':
               result = executeDIV(nextInstruction, regs, cpuFlags);
+              break;
+            case 'addc':
+              result = executeADDC(nextInstruction, regs, cpuFlags);
+              break;
+            case 'addi':
+              result = executeADDI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'sub':
+              result = executeSUB(nextInstruction, regs, cpuFlags);
+              break;
+            case 'subb':
+              result = executeSUBB(nextInstruction, regs, cpuFlags);
               break;
             case 'divi':
               result = executeDIVI(nextInstruction, regs, cpuFlags);
