@@ -214,6 +214,10 @@ export default function InstructionInput() {
           validationErrors.push({
             line: index,
             message: `Line ${index + 1}: JC must be followed by a valid label (e.g., JC LOOP)`,
+            type: 'syntax'
+          });
+        }
+      }
 
         if (instructionType === 'subi') {
         const subiPattern = /^subi\s+[0-9a-f]{2}h$/i;
