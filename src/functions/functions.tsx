@@ -6,3 +6,5 @@ export * from './jmp';
 export * from './jnz';
 export * from './jz';
 export * from './jnc';
+
+export * from './subi';

@@ -7,6 +7,7 @@ import { executeJMP } from '../functions/jmp';
 import { executeJNZ } from '../functions/jnz';
 import { executeJZ } from '../functions/jz';
 import { executeJNC } from '../functions/jnc';
+import { executeSUBI } from '../functions/subi';
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -196,6 +197,9 @@ export default function ControlBar() {
               return; // Skip incrementing line
             }
             break;
+          case 'subi':
+            result = executeSUBI(nextInstruction, regs, cpuFlags);
+          break;
         default:
           result = executeMVI(nextInstruction, regs, cpuFlags);
           break;
@@ -326,6 +330,9 @@ export default function ControlBar() {
                 await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
                 continue; // Skip incrementing line
               }
+              break;
+            case 'subi':
+              result = executeSUBI(nextInstruction, regs, cpuFlags);
               break;
             default:
               result = executeMVI(nextInstruction, regs, cpuFlags);
