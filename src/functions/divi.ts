@@ -19,8 +19,9 @@ export function executeDIVI(instruction: string, registers: Registers, flags: Fl
   const aVal = parseInt(registers.A.join(""), 16);
   const quotient = Math.floor(aVal / divisor) & 0xFF;
 
-  const nextRegs = { ...registers, A: [quotient.toString(16).toUpperCase().padStart(2, "0")[0], quotient.toString(16).toUpperCase().padStart(2, "0")[1]] };
-  const nextFlags = computeFlagsFromByte(nextRegs.A[0], nextRegs.A[1]);
+  const hex = quotient.toString(16).toUpperCase().padStart(2, "0");
+  const nextRegs = { ...registers, A: [hex[0], hex[1]] as [string, string] }; // Fixed here
+  const nextFlags = computeFlagsFromByte(hex[0], hex[1]);
 
   return { registers: nextRegs, flags: nextFlags };
 }
