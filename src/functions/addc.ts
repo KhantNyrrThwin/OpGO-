@@ -12,7 +12,7 @@ import {
  * 
  * This instruction affects all flags (Z, S, CY).
  */
-export function executeADDC(instruction: string, registers: Registers, flags: Flags): { registers: Registers; flags: Flags } {
+export function executeADDC(instruction: string, registers: Registers, flags: Flags): { registers: Registers; flags: Flags ,jumpTo?: number;} {
 	// Normalize input: "ADDC B" or "addc b"
 	const trimmed = instruction.trim();
 	const match = /^addc\s+([abcdehl])$/i.exec(trimmed);
@@ -43,8 +43,7 @@ export function executeADDC(instruction: string, registers: Registers, flags: Fl
 	// We get the new tuple value for the accumulator to pass to computeFlagsFromByte
 	const newAccTuple = nextRegisters.A;
 	const nextFlags = computeFlagsFromByte(...newAccTuple);
-	// The computeFlagsFromByte helper doesn't set carry, so we set it manually
-	nextFlags.carry = newCarry;
+	
 
 	return { registers: nextRegisters, flags: nextFlags };
 }

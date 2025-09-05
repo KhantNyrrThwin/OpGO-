@@ -209,6 +209,7 @@ export default function ControlBar() {
               return; // Skip incrementing line
             }
             break;
+        
 //Raven
 case 'jc':
   result = executeJC(nextInstruction, regs, cpuFlags, labelMap);
@@ -264,6 +265,7 @@ case 'jc':
           //act
           case 'addc':
             result = executeADDC(nextInstruction, regs, cpuFlags);
+            console.log("ADDC result:", result);
             break;
           case 'addi':
             result = executeADDI(nextInstruction, regs, cpuFlags);
@@ -460,6 +462,18 @@ case 'jc':
             break;
             case 'div':
               result = executeDIV(nextInstruction, regs, cpuFlags);
+              break;
+            case 'addc':
+              result = executeADDC(nextInstruction, regs, cpuFlags);
+              break;
+            case 'addi':
+              result = executeADDI(nextInstruction, regs, cpuFlags);
+              break;
+            case 'sub':
+              result = executeSUB(nextInstruction, regs, cpuFlags);
+              break;
+            case 'subb':
+              result = executeSUBB(nextInstruction, regs, cpuFlags);
               break;
             default:
               result = executeMVI(nextInstruction, regs, cpuFlags);
