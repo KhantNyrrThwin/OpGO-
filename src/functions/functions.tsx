@@ -23,3 +23,4 @@ export * from './subi';
 export * from './muli';
 export * from './mul';
 export * from './div';
+export * from './cmp';

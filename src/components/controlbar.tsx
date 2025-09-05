@@ -24,6 +24,8 @@ import { executeDCR } from '../functions/dcr';
 import { executeMULI } from '../functions/muli';
 import { executeMUL} from '../functions/mul';
 import { executeDIV } from '../functions/div';
+import { executeCMP } from '../functions/cmp';
+import { executeCPI } from '@/functions/cpi';
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -246,6 +248,12 @@ case 'jc':
   }
   break;
   //Raven
+  case 'cmp':
+    result = executeCMP(nextInstruction, regs, cpuFlags);
+    break;
+case 'cpi':
+    result = executeCPI(nextInstruction, regs, cpuFlags);
+    break;
   //Raven
   case 'inr':
     result = executeINR(nextInstruction, regs, cpuFlags);
@@ -464,6 +472,13 @@ case 'jc':
             result = executeDCR(nextInstruction, regs, cpuFlags);
             break;
             //Raven
+            case 'cmp':
+            result = executeCMP(nextInstruction, regs, cpuFlags);
+            // No jump handling needed for CMP - it just updates flags
+            break;
+            case 'cpi':
+            result = executeCPI(nextInstruction, regs, cpuFlags);
+            break;
             //Raven
             case 'subi':
               result = executeSUBI(nextInstruction, regs, cpuFlags);
