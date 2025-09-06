@@ -1,7 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, X, ChevronDown, ChevronUp, AlertTriangle, Info, Lightbulb } from 'lucide-react';
 import { useFileContext } from '../contexts/FileContext';
 import { parseLabels } from '../functions/parseLabels';
 
@@ -15,7 +14,8 @@ export default function InstructionInput() {
   const [instructions, setInstructions] = useState("");
   const [highlightedLine, setHighlightedLine] = useState<number>(-1);
   const [errors, setErrors] = useState<ValidationError[]>([]);
-  const [showErrors, setShowErrors] = useState(false);
+  const [isErrorPanelExpanded, setIsErrorPanelExpanded] = useState(false);
+  const [selectedError, setSelectedError] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { setHasUnsavedChanges } = useFileContext();
   const labelMap = parseLabels(instructions);
@@ -27,24 +27,70 @@ export default function InstructionInput() {
     return validateInstructions(instructions, labelMap);
   };
 
+  // Helper functions for error handling
+  const getErrorIcon = (type: string) => {
+    switch (type) {
+      case 'semicolon': return <AlertTriangle className="h-4 w-4 text-orange-400" />;
+      case 'syntax': return <AlertCircle className="h-4 w-4 text-red-400" />;
+      case 'invalid_instruction': return <X className="h-4 w-4 text-red-500" />;
+      default: return <Info className="h-4 w-4 text-blue-400" />;
+    }
+  };
+
+  const getErrorColor = (type: string) => {
+    switch (type) {
+      case 'semicolon': return 'border-orange-400 bg-orange-900/20';
+      case 'syntax': return 'border-red-400 bg-red-900/20';
+      case 'invalid_instruction': return 'border-red-500 bg-red-900/30';
+      default: return 'border-blue-400 bg-blue-900/20';
+    }
+  };
+
+  const getErrorPriority = (type: string) => {
+    switch (type) {
+      case 'semicolon': return 1; // High priority
+      case 'syntax': return 2;    // Medium priority
+      case 'invalid_instruction': return 3; // Low priority
+      default: return 4;
+    }
+  };
+
+  const getQuickFix = (error: ValidationError) => {
+    if (error.type === 'semicolon') {
+      return 'Add semicolon (;) at the end';
+    }
+    return null;
+  };
+
+  const applyQuickFix = (error: ValidationError) => {
+    if (error.type === 'semicolon') {
+      const lines = instructions.split('\n');
+      if (lines[error.line] && !lines[error.line].trim().endsWith(';')) {
+        lines[error.line] = lines[error.line].trim() + ';';
+        setInstructions(lines.join('\n'));
+        setHasUnsavedChanges(true);
+      }
+    }
+  };
+
+  // Sort errors by priority
+  const sortedErrors = [...errors].sort((a, b) => getErrorPriority(a.type) - getErrorPriority(b.type));
+
   // Expose validation function to parent components
   useEffect(() => {
     const handleValidateAll = () => {
       const allErrors = validateAllErrors();
       setErrors(allErrors);
-      setShowErrors(allErrors.length > 0);
       console.log('Validation errors:', allErrors);
     };
 
     const handleExternalErrors = (event: CustomEvent) => {
       const incoming = event.detail as ValidationError[];
       setErrors(incoming);
-      setShowErrors(incoming.length > 0);
     };
 
     const handleClearErrors = () => {
       setErrors([]);
-      setShowErrors(false);
     };
 
     window.addEventListener('validateInstructions', handleValidateAll);
@@ -720,35 +766,134 @@ if (instructionType === 'cmp') {
 
   return (
     <div className="h-full bg-[#121212] text-white font-mono text-lg overflow-y-auto flex flex-col">
-      {/* Error Display */}
-      {showErrors && errors.length > 0 && (
-        <div className="p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-red-400 font-semibold flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              Validation Errors ({errors.length})
-            </h3>
-            <button
-              onClick={() => setShowErrors(false)}
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      {/* Enhanced Error Display */}
+      {errors.length > 0 && (
+        <div className="border-b border-gray-700">
+          {/* Error Panel Header */}
+          <div 
+            className="flex items-center justify-between p-3 bg-gray-800/50 cursor-pointer hover:bg-gray-800/70 transition-colors"
+            onClick={() => setIsErrorPanelExpanded(!isErrorPanelExpanded)}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+                <span className="font-semibold text-red-400">
+                  {errors.length} Error{errors.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 text-sm text-gray-400">
+                {sortedErrors.filter(e => e.type === 'semicolon').length > 0 && (
+                  <span className="px-2 py-1 bg-orange-900/30 text-orange-300 rounded text-xs">
+                    {sortedErrors.filter(e => e.type === 'semicolon').length} Missing Semicolon
+                  </span>
+                )}
+                {sortedErrors.filter(e => e.type === 'syntax').length > 0 && (
+                  <span className="px-2 py-1 bg-red-900/30 text-red-300 rounded text-xs">
+                    {sortedErrors.filter(e => e.type === 'syntax').length} Syntax
+                  </span>
+                )}
+                {sortedErrors.filter(e => e.type === 'invalid_instruction').length > 0 && (
+                  <span className="px-2 py-1 bg-red-900/40 text-red-200 rounded text-xs">
+                    {sortedErrors.filter(e => e.type === 'invalid_instruction').length} Invalid
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {isErrorPanelExpanded ? (
+                <ChevronUp className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              )}
+            </div>
           </div>
-          <div className="space-y-2 overflow-y-auto">
-            {errors.map((error, index) => (
-              <Alert key={index} variant='destructive' className="text-sm">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle className="text-red-400">
-                  {error.type === 'semicolon' ? 'Missing Semicolon' : 
-                   error.type === 'syntax' ? 'Syntax Error' : 'Invalid Instruction'}
-                </AlertTitle>
-                <AlertDescription className="text-red-300">
-                  {error.message}
-                </AlertDescription>
-              </Alert>
-            ))}
-          </div>
+
+          {/* Expanded Error Details */}
+          {isErrorPanelExpanded && (
+            <div className="max-h-64 overflow-y-auto bg-gray-900/30">
+              {sortedErrors.map((error, index) => (
+                <div 
+                  key={index}
+                  className={`border-l-4 ${getErrorColor(error.type)} p-3 hover:bg-gray-800/30 transition-colors cursor-pointer`}
+                  onClick={() => {
+                    setSelectedError(selectedError === index ? null : index);
+                    // Scroll to the error line
+                    if (textareaRef.current) {
+                      const linesUpToIndex = instructions.split('\n').slice(0, error.line).join('\n');
+                      const approxCharIndex = linesUpToIndex.length + 1;
+                      textareaRef.current.selectionStart = approxCharIndex;
+                      textareaRef.current.selectionEnd = approxCharIndex;
+                      textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                  }}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      {getErrorIcon(error.type)}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-white">
+                            Line {error.line + 1}
+                          </span>
+                          <span className="text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded">
+                            {error.type === 'semicolon' ? 'Missing Semicolon' : 
+                             error.type === 'syntax' ? 'Syntax Error' : 'Invalid Instruction'}
+                          </span>
+                        </div>
+                        <p className="text-gray-300 text-sm">{error.message}</p>
+                        
+                        {/* Quick Fix Suggestion */}
+                        {getQuickFix(error) && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <Lightbulb className="h-3 w-3 text-yellow-400" />
+                            <span className="text-xs text-yellow-300">{getQuickFix(error)}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                applyQuickFix(error);
+                              }}
+                              className="text-xs px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded transition-colors"
+                            >
+                              Fix
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 ml-2">
+                      {selectedError === index ? 'Hide' : 'Show'} Details
+                    </div>
+                  </div>
+                  
+                  {/* Expanded Error Details */}
+                  {selectedError === index && (
+                    <div className="mt-3 pl-7 border-l border-gray-600">
+                      <div className="text-xs text-gray-400">
+                        <div className="mb-1">
+                          <strong>Current line:</strong> <code className="bg-gray-800 px-1 rounded">{lines[error.line] || '(empty)'}</code>
+                        </div>
+                        {error.type === 'semicolon' && (
+                          <div className="text-yellow-300">
+                            💡 <strong>Tip:</strong> All instructions must end with a semicolon (;)
+                          </div>
+                        )}
+                        {error.type === 'syntax' && (
+                          <div className="text-blue-300">
+                            💡 <strong>Tip:</strong> Check the instruction format and operands
+                          </div>
+                        )}
+                        {error.type === 'invalid_instruction' && (
+                          <div className="text-purple-300">
+                            💡 <strong>Tip:</strong> Use the instruction reference (ℹ️ icon) to see valid instructions
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       
@@ -756,12 +901,25 @@ if (instructionType === 'cmp') {
         <div className="bg-[#1f1f1f] text-gray-400 px-2 py-2 text-right select-none flex-shrink-0">
           {lines.map((_, index) => {
             const isActive = index === highlightedLine;
+            const lineError = errors.find(e => e.line === index);
+            const errorType = lineError?.type;
+            
             return (
               <div
                 key={index}
-                className={`leading-[3rem] ${isActive ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : ''}`}
+                className={`leading-[3rem] relative ${
+                  isActive ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : ''
+                }`}
               >
                 {index + 1}
+                {/* Error indicator dot */}
+                {lineError && (
+                  <div className={`absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 rounded-full ${
+                    errorType === 'semicolon' ? 'bg-orange-400' :
+                    errorType === 'syntax' ? 'bg-red-400' :
+                    'bg-red-500'
+                  }`} />
+                )}
               </div>
             );
           })}
@@ -794,6 +952,27 @@ if (instructionType === 'cmp') {
               }}
             />
           )}
+          
+          {/* Error line highlighting */}
+          {errors.map((error, index) => {
+            const lineError = errors.find(e => e.line === error.line);
+            if (!lineError) return null;
+            
+            return (
+              <div 
+                key={`error-${index}`}
+                className={`absolute left-2 right-2 border-l-4 z-0 ${
+                  error.type === 'semicolon' ? 'bg-orange-500/10 border-orange-400' :
+                  error.type === 'syntax' ? 'bg-red-500/10 border-red-400' :
+                  'bg-red-500/15 border-red-500'
+                }`}
+                style={{ 
+                  top: `calc(${error.line * 3}rem + 0.5rem)`, 
+                  height: '3rem' 
+                }}
+              />
+            );
+          })}
         </div>
       </div>
     </div>

@@ -49,7 +49,7 @@ export default function InstructionInfo({ goBack }: Props) {
       <div className="absolute top-6 right-6">
         <button
           onClick={goBack}
-          className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg shadow transition"
+          className="px-5 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg shadow transition cursor-pointer"
         >
           ← Back to Simulator
         </button>
