@@ -329,10 +329,11 @@ case 'cpi':
               return; // Exit stepInto function
             }
             break;
-
+          case 'mvi':
+            result = executeMVI(nextInstruction, regs, cpuFlags);
+            break;
         default:
-          result = executeMVI(nextInstruction, regs, cpuFlags);
-          break;
+          return;
       }
       
     }
@@ -590,10 +591,11 @@ case 'cpi':
                 return; // Exit the autoStep function
               }
               break;
-
-            default:
+            case 'mvi':
               result = executeMVI(nextInstruction, regs, currentFlags);
               break;
+            default:
+              return;
           }
         }
 
