@@ -114,7 +114,14 @@ export default function InstructionInput() {
       
 
       // Check for valid instruction format
-      const instruction = instructionPart.replace(/;$/, '').trim().toLowerCase();
+      const raw = instructionPart.replace(/;$/, '').trim();
+      const opcode = raw.split(/\s+/)[0].toLowerCase();
+
+      const jumpMnemonics = ['jmp', 'jnz', 'jz', 'jc', 'jnc', 'jp', 'jm'];
+
+      const instruction = jumpMnemonics.includes(opcode)
+        ? opcode + raw.slice(opcode.length) // lowercase only the mnemonic
+        : raw.toLowerCase(); // lowercase entire instruction for others
       const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb'];
 
       
@@ -293,7 +300,7 @@ export default function InstructionInput() {
             type: 'syntax'
           });
         } else {
-          const label = match[1].toLowerCase();
+          const label = match[1];
           if (!(label in labelMap)) {
             validationErrors.push({
               line: index,
@@ -315,7 +322,7 @@ export default function InstructionInput() {
             type: 'syntax'
           });
         } else {
-          const label = match[1].toLowerCase();
+          const label = match[1];
           if (!(label in labelMap)) {
             validationErrors.push({
               line: index,
@@ -337,7 +344,7 @@ export default function InstructionInput() {
             type: 'syntax'
           });
         } else {
-          const label = match[1].toLowerCase();
+          const label = match[1];
           if (!(label in labelMap)) {
             validationErrors.push({
               line: index,
@@ -359,7 +366,7 @@ export default function InstructionInput() {
             type: 'syntax'
           });
         } else {
-          const label = match[1].toLowerCase();
+          const label = match[1];
           if (!(label in labelMap)) {
             validationErrors.push({
               line: index,
@@ -382,7 +389,7 @@ export default function InstructionInput() {
             type: 'syntax'
           });
         } else {
-          const label = match[1].toLowerCase();
+          const label = match[1];
           if (!(label in labelMap)) {
             validationErrors.push({
               line: index,
@@ -404,7 +411,7 @@ export default function InstructionInput() {
             type: 'syntax'
           });
         } else {
-          const label = match[1].toLowerCase();
+          const label = match[1];
           if (!(label in labelMap)) {
             validationErrors.push({
               line: index,
@@ -450,7 +457,7 @@ export default function InstructionInput() {
             type: 'syntax'
           });
         } else {
-          const label = match[1].toLowerCase();
+          const label = match[1];
           if (!(label in labelMap)) {
             validationErrors.push({
               line: index,
