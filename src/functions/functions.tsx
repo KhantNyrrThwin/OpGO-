@@ -29,3 +29,4 @@ export * from './sub';
 export * from './subb';
 export * from './cmp';
 export * from './cpi';
+export * from './hlt';
