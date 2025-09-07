@@ -27,6 +27,7 @@ export function executeMULI(instruction: string, registers: Registers, flags: Fl
 
     // Perform multiplication (A * immediate)
     let result = accValue * immediateValue;
+    let carry = result > 0xFF ? 1 : 0;
     if (result > 0xFF) result = result % 0x100; // Wrap around for 8-bit
 
     // Convert result to hex string, pad to 2 digits
@@ -38,6 +39,7 @@ export function executeMULI(instruction: string, registers: Registers, flags: Fl
     nextRegisters.A = [upper, lower];
 
     const nextFlags = computeFlagsFromByte(upper, lower);
+    nextFlags.carry = carry;
     // You may want to set CY flag if accValue * immediateValue > 0xFF, etc.
 
     return { registers: nextRegisters, flags: nextFlags };
