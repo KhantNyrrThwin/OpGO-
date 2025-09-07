@@ -2,7 +2,7 @@
 
 JM Instruction Implementation for 8085 Microprocessor
 
-JM label - Jump to specified label only if Sign flag is 1 (positive)
+JM label - Jump to specified label only if Sign flag is 1 (negative)
 
 Example: JM LOOP
 
@@ -20,18 +20,21 @@ flags: Flags,
 labelMap: Record<string, number>
 ): { registers: Registers; flags: Flags; jumpTo?: number } {
 const trimmed = instruction.trim();
-console.log('Sign flag value:', flags.sign);
+console.log('JM: Sign flag value:', flags.sign);
+console.log('JM: Instruction:', instruction);
 
-// Only proceed if Sign flag is 1 (positive)
+// Only proceed if Sign flag is 1 (negative)
 if (flags.sign !== 1) {
+console.log('JM: Sign flag is not 1, no jump');
 return { registers, flags }; // No jump
 }
 
-const labelMatch = /^jp\s+([a-z_][a-z0-9_]*)$/i.exec(trimmed);
+const labelMatch = /^jm\s+([a-z_][a-z0-9_]*)$/i.exec(trimmed);
 if (labelMatch) {
 const label = labelMatch[1].toLowerCase();
 const resolvedLine = labelMap[label];
 if (resolvedLine !== undefined) {
+console.log(`JM: Jumping to label '${label}' at line ${resolvedLine}`);
 return { registers, flags, jumpTo: resolvedLine };
 }
 }

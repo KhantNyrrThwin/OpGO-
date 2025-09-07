@@ -30,6 +30,7 @@ import { executeSUB } from '../functions/sub';
 import { executeSUBB } from '../functions/subb';
 import { executeCMP } from '../functions/cmp';
 import { executeCPI } from '@/functions/cpi';
+import { executeHLT } from '../functions/hlt';
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -316,6 +317,18 @@ case 'cpi':
           case 'xori':
             result = executeXORI(nextInstruction, regs, cpuFlags);
             break;
+          case 'hlt':
+            result = executeHLT(nextInstruction, regs, cpuFlags);
+            if (result.halt) {
+              console.log('Program halted by HLT instruction');
+              // Stop execution immediately
+              currentLineRef.current = rawLines.length; // Move to end to stop execution
+              setCpuFlags(result.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+              return; // Exit stepInto function
+            }
+            break;
 
         default:
           result = executeMVI(nextInstruction, regs, cpuFlags);
@@ -368,6 +381,9 @@ case 'cpi':
 
     // Auto-step through all instructions
     const autoStep = async () => {
+      // Keep track of current flags locally to avoid React state update delays
+      let currentFlags = initialFlags;
+      
       while (isRunningRef.current && currentLineRef.current < rawLines.length) {
         // Check if we should stop
         if (!isRunningRef.current) break;
@@ -403,12 +419,13 @@ case 'cpi':
           const opcode = nextInstruction.split(' ')[0].toLowerCase();
           switch (opcode) {
             case 'mov':
-              result = executeMOV(nextInstruction, regs, cpuFlags);
+              result = executeMOV(nextInstruction, regs, currentFlags);
               break;
             case 'jmp':
-              result = executeJMP(nextInstruction, regs, cpuFlags, labelMap);
+              result = executeJMP(nextInstruction, regs, currentFlags, labelMap);
               if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
@@ -417,9 +434,10 @@ case 'cpi':
               }
               break;
             case 'jnz':
-              result = executeJNZ(nextInstruction, regs, cpuFlags, labelMap);
+              result = executeJNZ(nextInstruction, regs, currentFlags, labelMap);
               if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
@@ -428,9 +446,10 @@ case 'cpi':
               }
               break;
             case 'jz':
-              result = executeJZ(nextInstruction, regs, cpuFlags, labelMap);
+              result = executeJZ(nextInstruction, regs, currentFlags, labelMap);
               if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
@@ -439,9 +458,10 @@ case 'cpi':
               }
               break;
             case 'jnc':
-              result = executeJNC(nextInstruction, regs, cpuFlags, labelMap);
+              result = executeJNC(nextInstruction, regs, currentFlags, labelMap);
               if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
@@ -451,110 +471,134 @@ case 'cpi':
               break;
             //Raven
             case 'jc':
-            result = executeJC(nextInstruction,regs, cpuFlags, labelMap);
+            result = executeJC(nextInstruction,regs, currentFlags, labelMap);
             if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 100ms delay
                 continue; // Skip incrementing line
             }
             break;
             case 'jm':
-            result = executeJM(nextInstruction, regs, cpuFlags, labelMap);
+            result = executeJM(nextInstruction, regs, currentFlags, labelMap);
             if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 100ms delay
                 continue; // Skip incrementing line
             }
             break;
             case 'jp':
-            result = executeJP(nextInstruction,regs, cpuFlags, labelMap);
+            result = executeJP(nextInstruction,regs, currentFlags, labelMap);
             if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
+                currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 100ms delay
                 continue; // Skip incrementing line
             }
             break;
             //Raven
             case 'inr':
-            result = executeINR(nextInstruction, regs, cpuFlags);
+            result = executeINR(nextInstruction, regs, currentFlags);
             break;
             case 'dcr':
-            result = executeDCR(nextInstruction, regs, cpuFlags);
+            result = executeDCR(nextInstruction, regs, currentFlags);
             break;
             //Raven
             case 'cmp':
-            result = executeCMP(nextInstruction, regs, cpuFlags);
+            result = executeCMP(nextInstruction, regs, currentFlags);
             // No jump handling needed for CMP - it just updates flags
             break;
             case 'cpi':
-            result = executeCPI(nextInstruction, regs, cpuFlags);
+            result = executeCPI(nextInstruction, regs, currentFlags);
             break;
             //Raven
             case 'subi':
-              result = executeSUBI(nextInstruction, regs, cpuFlags);
+              result = executeSUBI(nextInstruction, regs, currentFlags);
               break;
             case 'muli':
-              result = executeMULI(nextInstruction, regs, cpuFlags);
+              result = executeMULI(nextInstruction, regs, currentFlags);
               break;
             case 'mul':
-              result = executeMUL(nextInstruction, regs, cpuFlags);
+              result = executeMUL(nextInstruction, regs, currentFlags);
             break;
             case 'div':
-              result = executeDIV(nextInstruction, regs, cpuFlags);
+              result = executeDIV(nextInstruction, regs, currentFlags);
               break;
             case 'addc':
-              result = executeADDC(nextInstruction, regs, cpuFlags);
+              result = executeADDC(nextInstruction, regs, currentFlags);
               break;
             case 'addi':
-              result = executeADDI(nextInstruction, regs, cpuFlags);
+              result = executeADDI(nextInstruction, regs, currentFlags);
               break;
             case 'sub':
-              result = executeSUB(nextInstruction, regs, cpuFlags);
+              result = executeSUB(nextInstruction, regs, currentFlags);
               break;
             case 'subb':
-              result = executeSUBB(nextInstruction, regs, cpuFlags);
+              result = executeSUBB(nextInstruction, regs, currentFlags);
               break;
             case 'divi':
-              result = executeDIVI(nextInstruction, regs, cpuFlags);
+              result = executeDIVI(nextInstruction, regs, currentFlags);
               break;
             case 'and':
-              result = executeAND(nextInstruction, regs, cpuFlags);
+              result = executeAND(nextInstruction, regs, currentFlags);
               break;
             case 'andi':
-              result = executeANDI(nextInstruction, regs, cpuFlags);
+              result = executeANDI(nextInstruction, regs, currentFlags);
               break;
             case 'or':
-              result = executeOR(nextInstruction, regs, cpuFlags);
+              result = executeOR(nextInstruction, regs, currentFlags);
               break;
             case 'ori':
-              result = executeORI(nextInstruction, regs, cpuFlags);
+              result = executeORI(nextInstruction, regs, currentFlags);
               break;
             case 'not':
-              result = executeNOT(nextInstruction, regs, cpuFlags);
+              result = executeNOT(nextInstruction, regs, currentFlags);
               break;
             case 'xor':
-              result = executeXOR(nextInstruction, regs, cpuFlags);
+              result = executeXOR(nextInstruction, regs, currentFlags);
               break;
             case 'xori':
-              result = executeXORI(nextInstruction, regs, cpuFlags);
+              result = executeXORI(nextInstruction, regs, currentFlags);
+              break;
+            case 'hlt':
+              result = executeHLT(nextInstruction, regs, currentFlags);
+              if (result.halt) {
+                console.log('Program halted by HLT instruction');
+                // Stop execution immediately
+                isRunningRef.current = false;
+                currentLineRef.current = rawLines.length; // Move to end to stop execution
+                currentFlags = result.flags;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                // Clear highlight after halt
+                window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+                // Reset step-into position and first step flag
+                currentLineRef.current = 0;
+                isFirstStepRef.current = true;
+                isRunningRef.current = false;
+                return; // Exit the autoStep function
+              }
               break;
 
             default:
-              result = executeMVI(nextInstruction, regs, cpuFlags);
+              result = executeMVI(nextInstruction, regs, currentFlags);
               break;
           }
         }
 
         const { registers: newRegs, flags: newFlags } = result;
+        currentFlags = newFlags; // Update local flags
         setCpuFlags(newFlags);
         window.dispatchEvent(new CustomEvent('setRegisters', { detail: newRegs }));
         window.dispatchEvent(new CustomEvent('setFlags', { detail: newFlags }));
@@ -596,6 +640,7 @@ case 'cpi':
     window.dispatchEvent(new CustomEvent('clearErrors'));
   };
 
+  
   return (
     <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative z-15">
       {/* File Menu */}
