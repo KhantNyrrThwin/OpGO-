@@ -168,7 +168,7 @@ export default function InstructionInput() {
       const instruction = jumpMnemonics.includes(opcode)
         ? opcode + raw.slice(opcode.length) // lowercase only the mnemonic
         : raw.toLowerCase(); // lowercase entire instruction for others
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'halt'];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt'];
 
 
       
