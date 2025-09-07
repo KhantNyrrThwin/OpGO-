@@ -1,0 +1,4 @@
+loop: MVI A, 00H;
+SUBI 01H;
+JM loop;
+HLT;

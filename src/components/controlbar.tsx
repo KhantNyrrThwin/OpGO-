@@ -30,6 +30,7 @@ import { executeSUB } from '../functions/sub';
 import { executeSUBB } from '../functions/subb';
 import { executeCMP } from '../functions/cmp';
 import { executeCPI } from '@/functions/cpi';
+import { executeHLT } from '../functions/hlt';
 import { parseLabels } from '../functions/parseLabels';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
@@ -316,6 +317,18 @@ case 'cpi':
           case 'xori':
             result = executeXORI(nextInstruction, regs, cpuFlags);
             break;
+          case 'hlt':
+            result = executeHLT(nextInstruction, regs, cpuFlags);
+            if (result.halt) {
+              console.log('Program halted by HLT instruction');
+              // Stop execution immediately
+              currentLineRef.current = rawLines.length; // Move to end to stop execution
+              setCpuFlags(result.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+              return; // Exit stepInto function
+            }
+            break;
 
         default:
           result = executeMVI(nextInstruction, regs, cpuFlags);
@@ -556,6 +569,26 @@ case 'cpi':
               break;
             case 'xori':
               result = executeXORI(nextInstruction, regs, currentFlags);
+              break;
+            case 'hlt':
+              result = executeHLT(nextInstruction, regs, currentFlags);
+              if (result.halt) {
+                console.log('Program halted by HLT instruction');
+                // Stop execution immediately
+                isRunningRef.current = false;
+                currentLineRef.current = rawLines.length; // Move to end to stop execution
+                currentFlags = result.flags;
+                setCpuFlags(result.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+                // Clear highlight after halt
+                window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+                // Reset step-into position and first step flag
+                currentLineRef.current = 0;
+                isFirstStepRef.current = true;
+                isRunningRef.current = false;
+                return; // Exit the autoStep function
+              }
               break;
 
             default:
