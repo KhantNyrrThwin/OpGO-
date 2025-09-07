@@ -161,7 +161,7 @@ export default function InstructionInput() {
 
       // Check for valid instruction format
       const instruction = instructionPart.replace(/;$/, '').trim().toLowerCase();
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'sub', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'add', 'hlt'];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'sub', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'add', 'hlt', 'cmp', 'cpi'];
 
       
       if (instruction.length > 0) {
