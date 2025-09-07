@@ -168,7 +168,7 @@ export default function InstructionInput() {
         const instructionType = instruction.split(' ')[0];
         if (!validInstructions.includes(instructionType)) {          validationErrors.push({
             line: index,
-            message: `Line ${index + 1}: Invalid instruction "${instructionType}". Valid instructions: ${validInstructions}`,
+            message: `Line ${index + 1}: Invalid instruction "${instructionType}".`,
             type: 'invalid_instruction'
           });
         }
