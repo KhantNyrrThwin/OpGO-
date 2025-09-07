@@ -607,6 +607,7 @@ case 'cpi':
     window.dispatchEvent(new CustomEvent('clearErrors'));
   };
 
+  
   return (
     <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative z-15">
       {/* File Menu */}
