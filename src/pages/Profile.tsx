@@ -29,7 +29,6 @@ const PluginCard: React.FC<PluginCardProps> = ({ name, description, icon }) => (
     <div className="text-3xl">{icon}</div>
     <div>
       <h3 className="text-lg font-semibold text-white">{name}</h3>
-      {/* lighter + bigger font */}
       <p className="text-gray-300 text-base whitespace-pre-line">{description}</p>
     </div>
   </div>
@@ -37,7 +36,7 @@ const PluginCard: React.FC<PluginCardProps> = ({ name, description, icon }) => (
 
 const Profile: React.FC = () => {
   return (
-    <div className="min-h-screen bg-black text-center px-6 py-12">
+    <div className="min-h-screen bg-black text-center px-6 py-12 relative">
       <h1 className="text-4xl md:text-5xl font-bold text-yellow-400 mb-2">
         Project Members'
       </h1>
@@ -45,12 +44,20 @@ const Profile: React.FC = () => {
         Profile
       </h2>
 
-      {/* 3 columns grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
         {plugins.map((plugin, index) => (
           <PluginCard key={index} {...plugin} />
         ))}
       </div>
+
+      {/* Floating Home Button with emoji */}
+      <button
+        onClick={() => (window.location.href = "/")}
+        className="fixed bottom-8 right-8 w-14 h-14 bg-yellow-400 text-black text-2xl font-bold rounded-full shadow-lg hover:bg-yellow-500 transition transform hover:scale-110 flex items-center justify-center"
+        title="Return to Home"
+      >
+        🏠
+      </button>
     </div>
   );
 };
