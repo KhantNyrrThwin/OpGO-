@@ -60,7 +60,7 @@ export function executeSTA(instruction: string, registers: Registers, flags: Fla
     const match = /^sta\s+([0-9a-f]{1,4})h$/i.exec(trimmed);
     
     if (!match) {
-        return { registers, flags, memory, error: `Invalid STA instruction format. Use: STA XXXXH` };
+        return { registers, flags, memory};
     }
 
     const address = parseHex(match[1]);

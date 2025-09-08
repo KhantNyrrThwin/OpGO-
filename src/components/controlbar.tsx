@@ -33,9 +33,8 @@ import { executeCPI } from '@/functions/cpi';
 import { executeHLT } from '../functions/hlt';
 import { parseLabels } from '../functions/parseLabels';
 import { executeADD } from '../functions/add';
-//import { executeADD_R } from '../functions/add';
-//import { executeADD_M } from '../functions/add';
 import { executeLDA } from '../functions/lda';
+import { executeSTA } from '../functions/sta';
 import { executeSTA } from '../functions/store';
 import { executeLXI } from '../functions/lxi';
 import { executeLDAX } from '../functions/ldax';
@@ -202,17 +201,16 @@ export default function ControlBar() {
         // In stepInto function, add error handling:
         case 'lda':
           result = executeLDA(nextInstruction, regs, cpuFlags, memory);
-          if (result.error) {
-            window.dispatchEvent(new CustomEvent('externalErrors', { 
-              detail: [{ 
-                line: currentLineRef.current, 
-                message: result.error, 
-                type: 'syntax' 
-              }] 
-            }));
-            return;
-          }
           break;
+        case 'sta': {
+          const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
+          result = { registers: staResult.registers, flags: staResult.flags };
+          if (staResult.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: staResult.memory }));
+              }
+        }
+          break;
+
         case 'ldax':
           result = executeLDAX(nextInstruction, regs, cpuFlags, memory);
           if (result.error) {
@@ -226,23 +224,8 @@ export default function ControlBar() {
             return;
           }
           break;
-        case 'sta':
-          result = executeSTA(nextInstruction, regs, cpuFlags, memory);
-          if (result.error) {
-            window.dispatchEvent(new CustomEvent('externalErrors', { 
-              detail: [{ 
-                line: currentLineRef.current, 
-                message: result.error, 
-                type: 'syntax' 
-              }] 
-            }));
-            return;
-          }
-          // Update memory state
-          if (result.memory !== memory) {
-            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
-          }
-          break;
+       
+        
         case 'stax':
           result = executeSTAX(nextInstruction, regs, cpuFlags, memory);
           if (result.error) {
@@ -533,30 +516,10 @@ case 'cpi':
           switch (opcode) {
             // In handleRun function:
             case 'sta': {
-              const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
-
-              if (staResult.error) {
-                window.dispatchEvent(new CustomEvent('externalErrors', {
-                  detail: [{
-                    line: currentLineRef.current,
-                    message: staResult.error,
-                    type: 'syntax'
-                  }]
-                }));
-                return; // ⛔ Block execution on error
-              }
-
-              result = {
-                registers: staResult.registers,
-                flags: staResult.flags
-              };
-
-              if (staResult.memory !== memory) {
-                window.dispatchEvent(new CustomEvent('setMemory', { detail: staResult.memory }));
-                memory = staResult.memory; // ✅ Update memory after dispatch
-              }
-
-              break;
+            const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
+            result = { registers: staResult.registers, flags: staResult.flags };
+            memory = staResult.memory; // Update the current memory
+            break;
             }
 
             case 'lda':
