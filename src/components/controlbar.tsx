@@ -33,11 +33,12 @@ import { executeCPI } from '@/functions/cpi';
 import { executeHLT } from '../functions/hlt';
 import { parseLabels } from '../functions/parseLabels';
 import { executeADD } from '../functions/add';
-//import { executeADD_R } from '../functions/add';
-//import { executeADD_M } from '../functions/add';
-// Add this import with the other imports
 import { executeLDA } from '../functions/lda';
 import { executeSTA } from '../functions/sta';
+import { executeSTA } from '../functions/store';
+import { executeLXI } from '../functions/lxi';
+import { executeLDAX } from '../functions/ldax';
+import { executeSTAX } from '../functions/stax';
 import { executeINX } from '../functions/inx';
 import { executeDCX } from '../functions/dcx';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
@@ -206,11 +207,61 @@ export default function ControlBar() {
           result = { registers: staResult.registers, flags: staResult.flags };
           if (staResult.memory !== memory) {
             window.dispatchEvent(new CustomEvent('setMemory', { detail: staResult.memory }));
-          }
+              }
         }
           break;
+
+        case 'ldax':
+          result = executeLDAX(nextInstruction, regs, cpuFlags, memory);
+          if (result.error) {
+            window.dispatchEvent(new CustomEvent('externalErrors', { 
+              detail: [{ 
+                line: currentLineRef.current, 
+                message: result.error, 
+                type: 'syntax' 
+              }] 
+            }));
+            return;
+          }
+          break;
+       
+        
+        case 'stax':
+          result = executeSTAX(nextInstruction, regs, cpuFlags, memory);
+          if (result.error) {
+            window.dispatchEvent(new CustomEvent('externalErrors', { 
+              detail: [{ 
+                line: currentLineRef.current, 
+                message: result.error, 
+                type: 'syntax' 
+              }] 
+            }));
+            return;
+          }
+          // Update memory state
+          if (result.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+          }
+          break;
+        case 'lxi':
+          result = executeLXI(nextInstruction, regs, cpuFlags);
+          break;
         case 'mov':
-          result = executeMOV(nextInstruction, regs, cpuFlags);
+          result = executeMOV(nextInstruction, regs, cpuFlags, memory);
+          if (result.error) {
+            window.dispatchEvent(new CustomEvent('externalErrors', { 
+              detail: [{ 
+                line: currentLineRef.current, 
+                message: result.error, 
+                type: 'syntax' 
+              }] 
+            }));
+            return;
+          }
+          // Update memory state
+          if (result.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+          }
           break;
         case 'jmp':
             result = executeJMP(nextInstruction, regs, cpuFlags, labelMap);
@@ -470,12 +521,68 @@ case 'cpi':
             memory = staResult.memory; // Update the current memory
             break;
             }
+
             case 'lda':
               result = executeLDA(nextInstruction, regs, cpuFlags, memory);
             break;
-            case 'mov':
-              result = executeMOV(nextInstruction, regs, currentFlags);
+            case 'ldax':
+              result = executeLDAX(nextInstruction, regs, cpuFlags, memory);
+            break;
+            case 'stax': {
+              const staxResult = executeSTAX(nextInstruction, regs, cpuFlags, memory);
+
+              if (staxResult.error) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: staxResult.error,
+                    type: 'syntax'
+                  }]
+                }));
+                return; // ⛔ Block execution on error
+              }
+
+              result = {
+                registers: staxResult.registers,
+                flags: staxResult.flags
+              };
+
+              if (staxResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: staxResult.memory }));
+                memory = staxResult.memory; // ✅ Update memory after dispatch
+              }
+
               break;
+            }
+            case 'lxi':
+              result = executeLXI(nextInstruction, regs, currentFlags);
+              break;
+            case 'mov': {
+              const movResult = executeMOV(nextInstruction, regs, cpuFlags, memory);
+
+              if (movResult.error) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: movResult.error,
+                    type: 'syntax'
+                  }]
+                }));
+                return; // ⛔ Block execution on error
+              }
+
+              result = {
+                registers: movResult.registers,
+                flags: movResult.flags
+              };
+
+              if (movResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: movResult.memory }));
+                memory = movResult.memory; // ✅ Update memory after dispatch
+              }
+
+              break;
+            }
             case 'jmp':
               result = executeJMP(nextInstruction, regs, currentFlags, labelMap);
               if (result.jumpTo !== undefined) {
