@@ -35,7 +35,6 @@ import { parseLabels } from '../functions/parseLabels';
 import { executeADD } from '../functions/add';
 import { executeLDA } from '../functions/lda';
 import { executeSTA } from '../functions/sta';
-import { executeSTA } from '../functions/store';
 import { executeLXI } from '../functions/lxi';
 import { executeLDAX } from '../functions/ldax';
 import { executeSTAX } from '../functions/stax';
