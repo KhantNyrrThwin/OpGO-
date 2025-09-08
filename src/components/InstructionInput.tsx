@@ -959,7 +959,73 @@ if (instructionType === 'cmp') {
     }
   };
 
+   // Add // to the start of each selected line (or current line if none selected)
+   const commentSelection = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const selectionStart = textarea.selectionStart;
+    const selectionEnd = textarea.selectionEnd;
+
+    const fullText = instructions;
+
+    // Find start index of the first selected line
+    const firstLineStart = fullText.lastIndexOf('\n', selectionStart - 1) + 1;
+    // Find end index (exclusive) of the last selected line
+    const lastLineBreakIdx = fullText.indexOf('\n', selectionEnd);
+    const lastLineEnd = lastLineBreakIdx === -1 ? fullText.length : lastLineBreakIdx;
+
+    const before = fullText.slice(0, firstLineStart);
+    const target = fullText.slice(firstLineStart, lastLineEnd);
+    const after = fullText.slice(lastLineEnd);
+
+    const linesToComment = target.split('\n');
+
+    const commentedLines = linesToComment.map((line) => {
+       // Preserve leading spaces, then insert //
+       const leadingSpacesMatch = line.match(/^\s*/);
+       const leading = leadingSpacesMatch ? leadingSpacesMatch[0] : '';
+       const rest = line.slice(leading.length);
+       // If already a full-line comment starting with //, leave as is
+       if (rest.startsWith('//')) return line;
+       return `${leading}//${rest}`;
+     });
+ 
+     const updatedTarget = commentedLines.join('\n');
+     const updatedText = before + updatedTarget + after;
+     setInstructions(updatedText);
+     setHasUnsavedChanges(true);
+ 
+     // Adjust selection to cover the same logical region after inserting //
+     // Each affected line (including possibly empty) got 2 extra chars before its content
+     const affectedLinesCount = linesToComment.length;
+     const selectionStartShift = 2; // caret is at start line; after "//" insertion
+     const selectionEndShift = 2 * affectedLinesCount;
+ 
+     // If there was no selection (caret within a single line), keep caret after the inserted //
+     if (selectionStart === selectionEnd) {
+       const newCaret = selectionStart + selectionStartShift;
+       setTimeout(() => {
+         textarea.selectionStart = textarea.selectionEnd = newCaret;
+       }, 0);
+     } else {
+       // Expand selection by the number of inserted characters
+       const newStart = selectionStart + selectionStartShift;
+       const newEnd = selectionEnd + selectionEndShift;
+       setTimeout(() => {
+        textarea.selectionStart = newStart;
+        textarea.selectionEnd = newEnd;
+      }, 0);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+     // Ctrl+/ to comment selected lines
+     if (e.ctrlKey && (e.key === '/' || e.key === '?')) {
+      e.preventDefault();
+      commentSelection();
+      return;
+    }
     if (e.key === 'Tab') {
       e.preventDefault();
       const textarea = e.currentTarget;
