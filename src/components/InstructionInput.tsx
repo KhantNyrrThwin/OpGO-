@@ -168,7 +168,7 @@ export default function InstructionInput() {
       const instruction = jumpMnemonics.includes(opcode)
         ? opcode + raw.slice(opcode.length) // lowercase only the mnemonic
         : raw.toLowerCase(); // lowercase entire instruction for others
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta' ];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta', 'lxi', 'ldax', 'stax' ];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
@@ -194,10 +194,10 @@ export default function InstructionInput() {
                   message: `Line ${index + 1}: MOV has too many operands`,
                   type: 'syntax'
                 });
-              } else if (!/^[abcdehl]$/i.test(parts[1].replace(',', '')) || !/^[abcdehl]$/i.test(parts[2])) {
+              } else if (!/^[abcdehlm]$/i.test(parts[1].replace(',', '')) || !/^[abcdehlm]$/i.test(parts[2])) {
                 validationErrors.push({
                   line: index,
-                  message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L)`,
+                  message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L,M)`,
                   type: 'syntax'
                 });
               }
@@ -239,6 +239,45 @@ export default function InstructionInput() {
               });
             }
           }
+
+          // === LDAX === (load accumulator from memory via register pair: LDAX B or LDAX D)
+          if (instructionType === 'ldax') {
+            const ldaxPattern = /^ldax\s+(b|d)$/i;
+            if (!ldaxPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: LDAX requires a valid register pair (B or D)`,
+                type: 'syntax'
+              });
+            }
+          }
+
+          // === STAX === (store accumulator into memory via register pair: STAX B or STAX D)
+          if (instructionType === 'stax') {
+            const staxPattern = /^stax\s+(b|d)$/i;
+            if (!staxPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: STAX requires a valid register pair (B or D)`,
+                type: 'syntax'
+              });
+            }
+          }
+
+
+
+          // === LXI === (load 16-bit address into register pair: LXI H, 2000H)
+          if (instructionType === 'lxi') {
+            const lxiPattern = /^lxi\s+(b|d|h),\s*[0-9a-f]{1,4}h$/i;
+            if (!lxiPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: LXI requires a valid register pair (B, D, H) and a 16-bit hex address (e.g., LXI H, 2000H)`,
+                type: 'syntax'
+              });
+            }
+          }
+
         // === MVI === (register + immediate hex: MVI A,05H)
         if (instructionType === 'mvi') {
           const parts = instruction.split(/\s+/);

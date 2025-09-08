@@ -32,4 +32,7 @@ export * from './cpi';
 export * from './lda';
 export * from './add';
 export * from './store';
+export * from './lxi';
+export * from './ldax';
+export * from './stax';
 export * from './hlt';
