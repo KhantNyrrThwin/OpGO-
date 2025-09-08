@@ -117,13 +117,16 @@ export default function InstructionInput() {
       // Skip empty and full-line comments
       if (trimmedLine === '' || trimmedLine.startsWith('//') || trimmedLine.startsWith(';')) return;
 
-      // Remove inline comments and continue with code-only part
-      const codeOnly = trimmedLine.split('//')[0].trim();
-      if (codeOnly === '') return;
+        // Remove inline '//' comment and treat anything after first ';' as comment
+        const beforeSlash = line.split('//')[0];
+        const semiIdxGlobal = beforeSlash.indexOf(';');
+        const codeForChecks = (semiIdxGlobal >= 0 ? beforeSlash.slice(0, semiIdxGlobal + 1) : beforeSlash).trim();
+        const codeForParse = (semiIdxGlobal >= 0 ? beforeSlash.slice(0, semiIdxGlobal + 1) : beforeSlash).trim();
+        if (codeForParse === '') return;
 
-      // Split label if present
-      const labelSplit = codeOnly.split(':');
-      let instructionPart = codeOnly;
+      // Split label if present (using the part considered as code)
+      const labelSplit = codeForParse.split(':');
+      let instructionPart = codeForParse;
 
       if (labelSplit.length === 2) {
         const label = labelSplit[0].trim();
@@ -154,8 +157,8 @@ export default function InstructionInput() {
         return;
       }
       
-      // Check for semicolon
-      if (!instructionPart.endsWith(';')) {
+        // Check for semicolon at end of the code part (before any comment)
+        if (!codeForChecks.endsWith(';')) {
         validationErrors.push({
           line: index,
           message: `Line ${index + 1}: Instruction must end with semicolon (;)`,
@@ -819,17 +822,25 @@ if (instructionType === 'cmp') {
       const leadingSpacesCount = line.length - trimmed.length;
       const leadingSpaces = line.slice(0, leadingSpacesCount).replace(/ /g, '&nbsp;');
 
-      if (trimmed.startsWith('//') || trimmed.startsWith(';')) {
+      if (trimmed.startsWith('//') || trimmed.startsWith('/')) {
         const commentHtml = `<span class=\"text-green-300\">${escapeHtml(trimmed)}</span>`;
         htmlLines.push(`${leadingSpaces}${commentHtml}`);
         continue;
       }
 
-      // Inline comment using //
-      const inlineIdx = line.indexOf('//');
-      if (inlineIdx >= 0) {
-        const codePart = line.slice(0, inlineIdx);
-        const commentPart = line.slice(inlineIdx);
+            // Inline comment using // or anything after first ;
+            const inlineSlashIdx = line.indexOf('//');
+            const semiIdx = line.indexOf('/');
+            const hasInlineSlash = inlineSlashIdx >= 0;
+            const hasInlineSemi = semiIdx >= 0;
+      
+            if (hasInlineSlash || hasInlineSemi) {
+              const splitIdx = Math.min(
+                hasInlineSlash ? inlineSlashIdx : Number.POSITIVE_INFINITY,
+                hasInlineSemi ? semiIdx : Number.POSITIVE_INFINITY
+              );
+              const codePart = line.slice(0, splitIdx);
+              const commentPart = line.slice(splitIdx);
         const codeHtml = escapeHtml(codePart).replace(/ /g, '&nbsp;');
         const commentHtml = `<span class=\"text-green-300\">${escapeHtml(commentPart)}</span>`;
         htmlLines.push(codeHtml + commentHtml);
