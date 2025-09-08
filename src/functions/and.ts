@@ -1,22 +1,43 @@
-/**
- * AND (Logical AND) - bitwise AND between A and a register
- * Syntax: AND r
- * Example: AND B ; A = A & B
- */
-
 import { type Registers, type Flags, computeFlagsFromByte } from './types';
 
-export function executeAND(instruction: string, registers: Registers, flags: Flags) {
-  const match = /^and\s+([abcdehl])$/i.exec(instruction.trim());
+// Helper to compute HL address
+const getHLAddress = (registers: Registers): number => {
+  const h = parseInt(registers.H[0] + registers.H[1], 16);
+  const l = parseInt(registers.L[0] + registers.L[1], 16);
+  return (h << 8) | l;
+};
+
+/**
+ * AND r - Bitwise AND between A and a register or memory
+ * Syntax: AND r
+ * Example: AND B ; A = A & B
+ *          AND M ; A = A & memory[HL]
+ */
+export function executeAND(
+  instruction: string,
+  registers: Registers,
+  flags: Flags,
+  memory: number[]
+): { registers: Registers; flags: Flags } {
+  const match = /^and\s+([abcdehlm])$/i.exec(instruction.trim());
   if (!match) return { registers, flags };
 
-  const reg = match[1].toUpperCase() as keyof Registers;
-  const aVal = parseInt(registers.A.join(""), 16);
-  const rVal = parseInt(registers[reg].join(""), 16);
-  const result = (aVal & rVal) & 0xFF;
+  const operand = match[1].toUpperCase();
 
+  const aVal = parseInt(registers.A.join(""), 16);
+  let rVal: number;
+
+  if (operand === 'M') {
+    const hlAddress = getHLAddress(registers);
+    rVal = memory[hlAddress] ?? 0x00;
+  } else {
+    rVal = parseInt(registers[operand as keyof Registers].join(""), 16);
+  }
+
+  const result = (aVal & rVal) & 0xFF;
   const hex = result.toString(16).toUpperCase().padStart(2, "0");
-  const nextRegs = { ...registers, A: [hex[0], hex[1]] as [string, string]};
+
+  const nextRegs = { ...registers, A: [hex[0], hex[1]] as [string, string] };
   const nextFlags = computeFlagsFromByte(hex[0], hex[1]);
 
   return { registers: nextRegs, flags: nextFlags };

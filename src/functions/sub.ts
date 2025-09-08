@@ -1,48 +1,57 @@
 import {
-	type Registers,
-	type Flags,
-	getRegisterByte,
-	setRegisterByte,
-	computeFlagsFromByte
+  type Registers,
+  type Flags,
+  getRegisterByte,
+  setRegisterByte,
+  computeFlagsFromByte
 } from './types';
 
+// Helper to compute HL address
+const getHLAddress = (registers: Registers): number => {
+  const h = parseInt(registers.H[0] + registers.H[1], 16);
+  const l = parseInt(registers.L[0] + registers.L[1], 16);
+  return (h << 8) | l;
+};
+
 /**
- * SUB r - Subtract register from Accumulator
- * Example: SUB B (Subtracts register B from A)
+ * SUB r - Subtract register or memory from Accumulator
+ * Example: SUB B or SUB M
  * 
  * For subtraction, the carry flag acts as a Borrow flag.
- * This instruction affects all flags (zero, sign, carry).
+ * This instruction affects all flags (Z, S, CY).
  */
-export function executeSUB(instruction: string, registers: Registers, flags: Flags): { registers: Registers; flags: Flags } {
-	// Normalize input: "SUB B" or "sub b"
-	const trimmed = instruction.trim();
-	const match = /^sub\s+([abcdehl])$/i.exec(trimmed);
-	if (!match) {
-		return { registers, flags };
-	}
+export function executeSUB(
+  instruction: string,
+  registers: Registers,
+  flags: Flags,
+  memory: number[]
+): { registers: Registers; flags: Flags } {
+  const trimmed = instruction.trim();
+  const match = /^sub\s+([abcdehlm])$/i.exec(trimmed);
+  if (!match) {
+    return { registers, flags };
+  }
 
-	const reg = match[1].toUpperCase() as keyof Registers;
+  const operand = match[1].toUpperCase();
 
-	// Get numerical values
-	const accValue = getRegisterByte(registers, 'A');
-	const regValue = getRegisterByte(registers, reg);
+  const accValue = getRegisterByte(registers, 'A');
+  let operandValue: number;
 
-	// Perform the subtraction
-	let result = accValue - regValue;
+  if (operand === 'M') {
+    const hlAddress = getHLAddress(registers);
+    operandValue = memory[hlAddress] ?? 0x00;
+  } else {
+    operandValue = getRegisterByte(registers, operand as keyof Registers);
+  }
 
-	// Calculate Borrow. If result is negative, we need to borrow (carry = 1).
-	const newBorrow = result < 0 ? 1 : 0;
+  let result = accValue - operandValue;
+  const newBorrow = result < 0 ? 1 : 0;
+  result = result & 0xFF;
 
-	// Handle underflow by converting to unsigned 8-bit (two's complement)
-	result = result & 0xFF;
+  const nextRegisters = setRegisterByte(registers, 'A', result);
+  const newAccTuple = nextRegisters.A;
+  const nextFlags = computeFlagsFromByte(...newAccTuple);
+  nextFlags.carry = newBorrow;
 
-	// Update the accumulator
-	const nextRegisters = setRegisterByte(registers, 'A', result);
-	const newAccTuple = nextRegisters.A;
-
-	// Compute flags
-	const nextFlags = computeFlagsFromByte(...newAccTuple);
-	nextFlags.carry = newBorrow; // Set borrow flag
-
-	return { registers: nextRegisters, flags: nextFlags };
+  return { registers: nextRegisters, flags: nextFlags };
 }

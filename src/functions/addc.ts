@@ -1,49 +1,58 @@
 import {
-	type Registers,
-	type Flags,
-	getRegisterByte,
-	setRegisterByte,
-	computeFlagsFromByte
+  type Registers,
+  type Flags,
+  getRegisterByte,
+  setRegisterByte,
+  computeFlagsFromByte
 } from './types';
 
+// Helper to compute HL address
+const getHLAddress = (registers: Registers): number => {
+  const h = parseInt(registers.H[0] + registers.H[1], 16);
+  const l = parseInt(registers.L[0] + registers.L[1], 16);
+  return (h << 8) | l;
+};
+
 /**
- * ADDC r - Add register to Accumulator with Carry
- * Example: ADDC B (Adds register B and the Carry flag to A)
+ * ADDC r - Add register or memory to Accumulator with Carry
+ * Example: ADDC B or ADDC M
  * 
  * This instruction affects all flags (Z, S, CY).
  */
-export function executeADDC(instruction: string, registers: Registers, flags: Flags): { registers: Registers; flags: Flags ,jumpTo?: number;} {
-	// Normalize input: "ADDC B" or "addc b"
-	const trimmed = instruction.trim();
-	const match = /^addc\s+([abcdehl])$/i.exec(trimmed);
-	if (!match) {
-		return { registers, flags }; // Return unchanged if input is invalid
-	}
+export function executeADDC(
+  instruction: string,
+  registers: Registers,
+  flags: Flags,
+  memory: number[]
+): { registers: Registers; flags: Flags; jumpTo?: number } {
+  const trimmed = instruction.trim();
+  const match = /^addc\s+([abcdehlm])$/i.exec(trimmed);
+  if (!match) {
+    return { registers, flags };
+  }
 
-	const reg = match[1].toUpperCase() as keyof Registers;
+  const operand = match[1].toUpperCase();
 
-	// Use the provided helper functions to get numerical values
-	const accValue = getRegisterByte(registers, 'A');
-	const regValue = getRegisterByte(registers, reg);
-	const carryValue = flags.carry; // This is already a number (0 or 1)
+  const accValue = getRegisterByte(registers, 'A');
+  let operandValue: number;
 
-	// Perform the addition
-	let result = accValue + regValue + carryValue;
+  if (operand === 'M') {
+    const hlAddress = getHLAddress(registers);
+    operandValue = memory[hlAddress] ?? 0x00;
+  } else {
+    operandValue = getRegisterByte(registers, operand as keyof Registers);
+  }
 
-	// Calculate the new Carry flag *before* truncating to 8 bits
-	const newCarry = result > 0xFF ? 1 : 0;
+  const carryValue = flags.carry;
+  let result = accValue + operandValue + carryValue;
 
-	// Truncate to 8 bits
-	result = result & 0xFF;
+  const newCarry = result > 0xFF ? 1 : 0;
+  result = result & 0xFF;
 
-	// Use the helper function to update the accumulator register
-	const nextRegisters = setRegisterByte(registers, 'A', result);
+  const nextRegisters = setRegisterByte(registers, 'A', result);
+  const newAccTuple = nextRegisters.A;
+  const nextFlags = computeFlagsFromByte(...newAccTuple);
+  nextFlags.carry = newCarry;
 
-	// Compute flags based on the new accumulator value
-	// We get the new tuple value for the accumulator to pass to computeFlagsFromByte
-	const newAccTuple = nextRegisters.A;
-	const nextFlags = computeFlagsFromByte(...newAccTuple);
-	
-
-	return { registers: nextRegisters, flags: nextFlags };
+  return { registers: nextRegisters, flags: nextFlags };
 }
