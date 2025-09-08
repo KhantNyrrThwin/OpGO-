@@ -115,13 +115,17 @@ export default function ControlBar() {
 
 
   const normalizeInstruction = (raw: string): string => {
-    const trimmed = raw.trim();
-    // Remove trailing semicolon if present, then collapse whitespace
-    const noSemi = trimmed.endsWith(';') ? trimmed.slice(0, -1) : trimmed;
-    
+    // Remove inline '//' comment first
+    const beforeSlash = raw.split('//')[0];
+    // Cut off anything after the first ';' (treat as terminator/comment boundary)
+    const semiIdx = beforeSlash.indexOf(';');
+    const beforeSemi = semiIdx >= 0 ? beforeSlash.slice(0, semiIdx) : beforeSlash;
+    const trimmed = beforeSemi.trim();
+    // Treat full-line comments beginning with ';' as comments
+    if (trimmed === '' || trimmed.startsWith('//') || trimmed.startsWith(';')) return '';
     // Remove inline label if present
-    const labelSplit = noSemi.split(':');
-    const instructionOnly = labelSplit.length === 2 ? labelSplit[1] : noSemi;
+    const labelSplit = trimmed.split(':');
+    const instructionOnly = labelSplit.length === 2 ? labelSplit[1] : trimmed;
 
     return instructionOnly.replace(/\s+/g, ' ').trim();
   };
@@ -130,9 +134,17 @@ export default function ControlBar() {
     const errors: Array<{ line: number; message: string; type: 'semicolon' }> = [];
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i += 1) {
-      const trimmed = lines[i].trim();
-      if (trimmed === '') continue;
-      if (!trimmed.endsWith(';')) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      // Skip empty and full-line comments (// or ;)
+      if (trimmed === '' || trimmed.startsWith('//') || trimmed.startsWith(';')) continue;
+      // Consider only code before inline '//' and treat anything after first ';' as comment
+      const beforeSlash = line.split('//')[0];
+      const semiIdx = beforeSlash.indexOf(';');
+      const codeForCheck = semiIdx >= 0 ? beforeSlash.slice(0, semiIdx + 1) : beforeSlash;
+      const check = codeForCheck.trim();
+      if (check === '') continue;
+      if (!/;\s*$/.test(check)) {
         errors.push({
           line: i,
           message: `Line ${i + 1}: Instruction must end with semicolon (;)`,
@@ -177,8 +189,13 @@ export default function ControlBar() {
 
     // Advance to next non-empty line
     const totalLines = rawLines.length;
-    while (currentLineRef.current < totalLines && rawLines[currentLineRef.current].trim() === '') {
-      currentLineRef.current += 1;
+    while (
+      currentLineRef.current < totalLines && (
+        rawLines[currentLineRef.current].trim() === '' ||
+        rawLines[currentLineRef.current].trim().startsWith('//') ||
+        rawLines[currentLineRef.current].trim().startsWith(';')
+      )
+    ) {      currentLineRef.current += 1;
     }
     if (currentLineRef.current >= totalLines) return;
 
@@ -482,8 +499,14 @@ case 'cpi':
         // Check if we should stop
         if (!isRunningRef.current) break;
         
-        // Advance to next non-empty line
-        while (currentLineRef.current < rawLines.length && rawLines[currentLineRef.current].trim() === '') {
+           // Advance to next non-empty, non-comment line
+           while (
+            currentLineRef.current < rawLines.length && (
+              rawLines[currentLineRef.current].trim() === '' ||
+              rawLines[currentLineRef.current].trim().startsWith('//') ||
+              rawLines[currentLineRef.current].trim().startsWith(';')
+            )
+          ) {
           currentLineRef.current += 1;
         }
         
