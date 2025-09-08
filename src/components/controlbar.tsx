@@ -41,6 +41,7 @@ import { executeSTA } from '../functions/store';
 import { executeINX } from '../functions/inx';
 import { executeDCX } from '../functions/dcx';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
+import { stripInlineComments } from '../functions/comments';
 
 export default function ControlBar() {
   const [showDropdown, setShowDropdown] = useState(false);
@@ -115,14 +116,14 @@ export default function ControlBar() {
 
 
   const normalizeInstruction = (raw: string): string => {
-    const trimmed = raw.trim();
+    // Remove comments first
+    const noComments = stripInlineComments(raw);
+    const trimmed = noComments.trim();
     // Remove trailing semicolon if present, then collapse whitespace
     const noSemi = trimmed.endsWith(';') ? trimmed.slice(0, -1) : trimmed;
-    
     // Remove inline label if present
     const labelSplit = noSemi.split(':');
     const instructionOnly = labelSplit.length === 2 ? labelSplit[1] : noSemi;
-
     return instructionOnly.replace(/\s+/g, ' ').trim();
   };
 
@@ -130,8 +131,9 @@ export default function ControlBar() {
     const errors: Array<{ line: number; message: string; type: 'semicolon' }> = [];
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i += 1) {
-      const trimmed = lines[i].trim();
-      if (trimmed === '') continue;
+      const noComments = stripInlineComments(lines[i]);
+      const trimmed = noComments.trim();
+      if (trimmed === '') continue; // ignore empty or comment-only lines
       if (!trimmed.endsWith(';')) {
         errors.push({
           line: i,

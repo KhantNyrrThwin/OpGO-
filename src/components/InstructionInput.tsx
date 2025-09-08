@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AlertCircle, X, ChevronDown, ChevronUp, AlertTriangle, Info, Lightbulb } from 'lucide-react';
 import { useFileContext } from '../contexts/FileContext';
 import { parseLabels } from '../functions/parseLabels';
+import { stripInlineComments } from '../functions/comments';
 
 interface ValidationError {
   line: number;
@@ -111,7 +112,8 @@ export default function InstructionInput() {
     const instructionLines = text.split('\n');
     
     instructionLines.forEach((line, index) => {
-      const trimmedLine = line.trim();
+      const noComments = stripInlineComments(line);
+      const trimmedLine = noComments.trim();
       
       // Skip empty lines
       if (trimmedLine === '') return;
@@ -149,7 +151,7 @@ export default function InstructionInput() {
         return;
       }
       
-      // Check for semicolon
+      // Check for semicolon (after stripping comments)
       if (!instructionPart.endsWith(';')) {
         validationErrors.push({
           line: index,
