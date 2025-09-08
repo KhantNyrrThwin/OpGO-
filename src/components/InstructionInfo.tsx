@@ -1,3 +1,5 @@
+import React, { useState } from 'react';
+
 interface Instruction {
   name: string;
   description: string;
@@ -6,8 +8,8 @@ interface Instruction {
 const instructions: Instruction[] = [
   { name: "MOV R1, R2", description: "Copy contents of register R2 into register R1" },
   { name: "MVI R1, data", description: "Copy operand (1 byte hexadecimal number) to register R1" },
-  { name: "LD X", description: "Load accumulator with contents of memory location X" },
-  { name: "ST X", description: "Store contents of accumulator in memory location X" },
+  { name: "LDA X", description: "Load accumulator with contents of memory location X" },
+  { name: "STA X", description: "Store contents of accumulator in memory location X" },
   { name: "ADD R1", description: "Add contents of register R1 to accumulator" },
   { name: "ADDC R1", description: "Add R1 and carry bit C to accumulator" },
   { name: "ADDI data", description: "Add immediate data to accumulator" },
@@ -27,8 +29,8 @@ const instructions: Instruction[] = [
   { name: "NOT", description: "Bitwise invert contents of accumulator" },
   { name: "CMP R1", description: "Compare R1 with contents of accumulator" },
   { name: "CPI data", description: "Compare immediate data with contents of accumulator" },
-  { name: "INR", description: "Increment accumulator by 1" },
-  { name: "DCR", description: "Decrement accumulator by 1" },
+  { name: "INR", description: "Increment Registers by 1" },
+  { name: "DCR", description: "Decrement Registers by 1" },
   { name: "JMP adr", description: "Jump to designated instruction" },
   { name: "JNZ adr", description: "Jump if result is not zero (Z = 0)" },
   { name: "JZ adr", description: "Jump if result is zero (Z = 1)" },
@@ -42,7 +44,15 @@ const instructions: Instruction[] = [
 interface Props {
   goBack: () => void;
 }
+
 export default function InstructionInfo({ goBack }: Props) {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredInstructions = instructions.filter(inst =>
+    inst.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    inst.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-gray-900 bg-opacity-80 text-white p-8 relative">
       {/* Top-right Back Button */}
@@ -57,20 +67,30 @@ export default function InstructionInfo({ goBack }: Props) {
 
       {/* Page Content */}
       <div className="max-w-5xl mx-auto mt-16">
-        <h1 className="text-3xl font-bold mb-6 text-left">Valid 8085 Instructions</h1>
+        <h1 className="text-3xl font-bold mb-6 text-left">Valid OpGO!! Instructions</h1>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-  {instructions.map((inst, idx) => (
-    <div
-      key={idx}
-      className="bg-gray-800 bg-opacity-70 p-4 rounded-lg shadow hover:bg-gray-700 transition"
-    >
-      <span className="block text-green-400 font-semibold text-lg">{inst.name}</span>
-      <p className="text-sm text-gray-300 mt-1">{inst.description}</p>
-    </div>
-  ))}
-</div>
+        {/* Search Bar */}
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Search instructions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-2 bg-gray-800 bg-opacity-70 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+          {filteredInstructions.map((inst, idx) => (
+            <div
+              key={idx}
+              className="bg-gray-800 bg-opacity-70 p-4 rounded-lg shadow hover:bg-gray-700 transition"
+            >
+              <span className="block text-green-400 font-semibold text-lg">{inst.name}</span>
+              <p className="text-sm text-gray-300 mt-1">{inst.description}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
