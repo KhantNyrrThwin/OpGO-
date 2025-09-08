@@ -32,6 +32,12 @@ import { executeCMP } from '../functions/cmp';
 import { executeCPI } from '@/functions/cpi';
 import { executeHLT } from '../functions/hlt';
 import { parseLabels } from '../functions/parseLabels';
+import { executeADD } from '../functions/add';
+//import { executeADD_R } from '../functions/add';
+//import { executeADD_M } from '../functions/add';
+// Add this import with the other imports
+import { executeLDA } from '../functions/lda';
+import { executeSTA } from '../functions/store';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
 export default function ControlBar() {
@@ -42,6 +48,17 @@ export default function ControlBar() {
   const currentLineRef = useRef<number>(0);
   const isFirstStepRef = useRef<boolean>(true);
   const isRunningRef = useRef<boolean>(false);
+
+  const getCurrentMemory = (): Promise<number[]> => {
+  return new Promise((resolve) => {
+    const handleMemory = (event: CustomEvent) => {
+      resolve(event.detail as number[]);
+      window.removeEventListener('getMemory', handleMemory as EventListener);
+    };
+    window.addEventListener('getMemory', handleMemory as EventListener);
+    window.dispatchEvent(new CustomEvent('requestMemory'));
+  });
+  };
 
   const handleOpen = async () => {
     try {
@@ -135,6 +152,7 @@ export default function ControlBar() {
       window.dispatchEvent(new CustomEvent('highlightLine', { detail: semiErrors[0].line }));
       return;
     }
+    const memory = await getCurrentMemory();
 
     // Validate all other errors (will show UI but not block here beyond semicolons)
     window.dispatchEvent(new CustomEvent('validateInstructions'));
@@ -177,6 +195,37 @@ export default function ControlBar() {
     {
       const opcode = nextInstruction.split(' ')[0].toLowerCase();
       switch (opcode) {
+        // In stepInto function, add error handling:
+        case 'lda':
+          result = executeLDA(nextInstruction, regs, cpuFlags, memory);
+          if (result.error) {
+            window.dispatchEvent(new CustomEvent('externalErrors', { 
+              detail: [{ 
+                line: currentLineRef.current, 
+                message: result.error, 
+                type: 'syntax' 
+              }] 
+            }));
+            return;
+          }
+          break;
+        case 'sta':
+          result = executeSTA(nextInstruction, regs, cpuFlags, memory);
+          if (result.error) {
+            window.dispatchEvent(new CustomEvent('externalErrors', { 
+              detail: [{ 
+                line: currentLineRef.current, 
+                message: result.error, 
+                type: 'syntax' 
+              }] 
+            }));
+            return;
+          }
+          // Update memory state
+          if (result.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+          }
+          break;
         case 'mov':
           result = executeMOV(nextInstruction, regs, cpuFlags);
           break;
@@ -220,7 +269,10 @@ export default function ControlBar() {
               return; // Skip incrementing line
             }
             break;
-
+   // In the stepInto function, add this case to the switch statement:
+        case 'add':
+          result = executeADD(nextInstruction, regs, cpuFlags);
+          break;          
 //Raven
 case 'jc':
   result = executeJC(nextInstruction, regs, cpuFlags, labelMap);
@@ -329,10 +381,11 @@ case 'cpi':
               return; // Exit stepInto function
             }
             break;
-
+          case 'mvi':
+            result = executeMVI(nextInstruction, regs, cpuFlags);
+            break;
         default:
-          result = executeMVI(nextInstruction, regs, cpuFlags);
-          break;
+          return;
       }
       
     }
@@ -381,13 +434,15 @@ case 'cpi':
 
     // Auto-step through all instructions
     const autoStep = async () => {
+      let memory = await getCurrentMemory();
+
+
       // Keep track of current flags locally to avoid React state update delays
       let currentFlags = initialFlags;
-      
-      while (isRunningRef.current && currentLineRef.current < rawLines.length) {
+            while (isRunningRef.current && currentLineRef.current < rawLines.length) {
         // Check if we should stop
         if (!isRunningRef.current) break;
-
+        
         // Advance to next non-empty line
         while (currentLineRef.current < rawLines.length && rawLines[currentLineRef.current].trim() === '') {
           currentLineRef.current += 1;
@@ -415,9 +470,19 @@ case 'cpi':
 
         let result;
         // Use switch on mnemonic (opcode)
+
         {
           const opcode = nextInstruction.split(' ')[0].toLowerCase();
           switch (opcode) {
+            // In handleRun function:
+            case 'sta':
+            const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
+            result = { registers: staResult.registers, flags: staResult.flags };
+            memory = staResult.memory; // Update the current memory
+            break;
+            case 'lda':
+              result = executeLDA(nextInstruction, regs, cpuFlags, memory);
+            break;
             case 'mov':
               result = executeMOV(nextInstruction, regs, currentFlags);
               break;
@@ -506,6 +571,10 @@ case 'cpi':
                 continue; // Skip incrementing line
             }
             break;
+            // In the handleRun function, add this case to the switch statement:
+            case 'add':
+            result = executeADD(nextInstruction, regs, cpuFlags);
+            break;
             //Raven
             case 'inr':
             result = executeINR(nextInstruction, regs, currentFlags);
@@ -590,10 +659,11 @@ case 'cpi':
                 return; // Exit the autoStep function
               }
               break;
-
-            default:
+            case 'mvi':
               result = executeMVI(nextInstruction, regs, currentFlags);
               break;
+            default:
+              return;
           }
         }
 

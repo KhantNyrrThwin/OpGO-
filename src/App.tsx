@@ -1,17 +1,19 @@
-import './App.css';
-import { useState } from 'react';
-import Navbar from './components/navbar';
-import Flags from './components/flags';
-import Registers from './components/register';
-import InstructionInput from './components/InstructionInput';
-import ControlBar from './components/controlbar';
-import UserGrid from './components/user_data';
-import FileNameDialog from './components/FileNameDialog';
-import InstructionInfo from './components/InstructionInfo';
-import { FileProvider, useFileContext } from './contexts/FileContext';
+import "./App.css";
+import { useState } from "react";
+import Navbar from "./components/navbar";
+import Flags from "./components/flags";
+import Registers from "./components/register";
+import InstructionInput from "./components/InstructionInput";
+import ControlBar from "./components/controlbar";
+import UserGrid from "./components/user_data";
+import FileNameDialog from "./components/FileNameDialog";
+import InstructionInfo from "./components/InstructionInfo";
+import Profile from "./pages/Profile"; // ✅ import Profile page
+import { FileProvider, useFileContext } from "./contexts/FileContext";
 
 function Simulator() {
-  const { showFileNameDialog, setShowFileNameDialog, handleSaveWithName, fileName } = useFileContext();
+  const { showFileNameDialog, setShowFileNameDialog, handleSaveWithName, fileName } =
+    useFileContext();
 
   const handleSaveWithNameWrapper = async (newFileName: string) => {
     const content = await getCurrentContent();
@@ -22,10 +24,10 @@ function Simulator() {
     return new Promise((resolve) => {
       const handleContent = (event: CustomEvent) => {
         resolve(event.detail);
-        window.removeEventListener('getContent', handleContent as EventListener);
+        window.removeEventListener("getContent", handleContent as EventListener);
       };
-      window.addEventListener('getContent', handleContent as EventListener);
-      window.dispatchEvent(new CustomEvent('requestContent'));
+      window.addEventListener("getContent", handleContent as EventListener);
+      window.dispatchEvent(new CustomEvent("requestContent"));
     });
   };
 
@@ -59,16 +61,26 @@ function Simulator() {
 }
 
 function App() {
-  const [showInstructions, setShowInstructions] = useState(false);
+  const [currentPage, setCurrentPage] = useState<"simulator" | "instructions" | "profile">(
+    "simulator"
+  );
 
   return (
     <FileProvider>
-      <Navbar onShowInstructions={() => setShowInstructions(true)} />
-      {showInstructions ? (
-        <InstructionInfo goBack={() => setShowInstructions(false)} />
-      ) : (
-        <Simulator />
+      <Navbar
+        onShowInstructions={() => setCurrentPage("instructions")}
+        onProfileClick={() => setCurrentPage("profile")}
+      />
+
+      {currentPage === "instructions" && (
+        <InstructionInfo goBack={() => setCurrentPage("simulator")} />
       )}
+
+      {currentPage === "profile" && (
+        <Profile /> 
+      )}
+
+      {currentPage === "simulator" && <Simulator />}
     </FileProvider>
   );
 }

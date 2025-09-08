@@ -5,9 +5,10 @@ import { InformationCircleIcon } from '@heroicons/react/24/solid';
 
 interface NavbarProps {
   onShowInstructions: () => void;
+  onProfileClick: () => void;
 }
 
-export default function Navbar({ onShowInstructions }: NavbarProps) {
+export default function Navbar({ onShowInstructions, onProfileClick }: NavbarProps) {
   return (
     <div className="bg-[#121212] h-15 flex flex-row items-center px-4">
       <img src={LOGO} className="w-29 h-10 mr-4" alt="Logo" />
@@ -18,7 +19,15 @@ export default function Navbar({ onShowInstructions }: NavbarProps) {
           onClick={onShowInstructions}
           title="View valid instructions"
         />
-        <img src={profile} className="size-10 rounded-full" alt="Profile" />
+
+        {/* ✅ Switch to Profile page */}
+        <img
+          src={profile}
+          className="size-10 rounded-full cursor-pointer"
+          alt="Profile"
+          onClick={onProfileClick}
+        />
+
         <a href="https://github.com/KhantNyrrThwin/OpGO-.git" target="_blank" rel="noopener noreferrer">
           <img src={Git} className="size-10" alt="GitHub" />
         </a>
