@@ -17,6 +17,7 @@ export default function InstructionInput() {
   const [isErrorPanelExpanded, setIsErrorPanelExpanded] = useState(false);
   const [selectedError, setSelectedError] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const { setHasUnsavedChanges } = useFileContext();
   const labelMap = parseLabels(instructions);
 
@@ -798,6 +799,48 @@ if (instructionType === 'cmp') {
     }
   }, []);
 
+  // Generate HTML with pale-green comments. Full-line comments start with // or ;
+  // Inline comments use // only to avoid conflict with required semicolon terminator.
+  const getCommentHighlightedHtml = (text: string): string => {
+    const escapeHtml = (str: string) =>
+      str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;');
+
+    const linesLocal = text.split('\n');
+    const htmlLines: string[] = [];
+    for (let i = 0; i < linesLocal.length; i++) {
+      const line = linesLocal[i];
+      const trimmed = line.trimStart();
+
+      // Determine if full-line comment (// or ;) after leading spaces
+      const leadingSpacesCount = line.length - trimmed.length;
+      const leadingSpaces = line.slice(0, leadingSpacesCount).replace(/ /g, '&nbsp;');
+
+      if (trimmed.startsWith('//') || trimmed.startsWith(';')) {
+        const commentHtml = `<span class=\"text-green-300\">${escapeHtml(trimmed)}</span>`;
+        htmlLines.push(`${leadingSpaces}${commentHtml}`);
+        continue;
+      }
+
+      // Inline comment using //
+      const inlineIdx = line.indexOf('//');
+      if (inlineIdx >= 0) {
+        const codePart = line.slice(0, inlineIdx);
+        const commentPart = line.slice(inlineIdx);
+        const codeHtml = escapeHtml(codePart).replace(/ /g, '&nbsp;');
+        const commentHtml = `<span class=\"text-green-300\">${escapeHtml(commentPart)}</span>`;
+        htmlLines.push(codeHtml + commentHtml);
+      } else {
+        // No comment in this line
+        htmlLines.push(escapeHtml(line).replace(/ /g, '&nbsp;'));
+      }
+    }
+    return htmlLines.join('<br/>');
+  };
+
   useEffect(() => {
     const handleFileOpened = (event: CustomEvent) => {
       setInstructions(event.detail);
@@ -832,6 +875,14 @@ if (instructionType === 'cmp') {
       window.removeEventListener('highlightLine', handleHighlightLine as EventListener);
     };
   }, [instructions, setHasUnsavedChanges]);
+
+  // Sync overlay scroll with textarea scroll
+  const handleScroll = () => {
+    if (textareaRef.current && overlayRef.current) {
+      overlayRef.current.scrollTop = textareaRef.current.scrollTop;
+      overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
@@ -1015,6 +1066,13 @@ if (instructionType === 'cmp') {
         </div>
 
 <div className="flex-grow relative">
+          {/* Syntax-highlight overlay for comments */}
+          <div
+            ref={overlayRef}
+            className="absolute inset-0 z-10 whitespace-pre-wrap break-words font-mono p-2 text-white pointer-events-none overflow-hidden"
+            style={{ lineHeight: '3rem' }}
+            dangerouslySetInnerHTML={{ __html: getCommentHighlightedHtml(instructions) }}
+          />
           <textarea
             ref={textareaRef}
             spellCheck={false}
@@ -1027,9 +1085,10 @@ if (instructionType === 'cmp') {
             setHasUnsavedChanges(true);
           }}
             onKeyDown={handleKeyDown}
+            onScroll={handleScroll}
             placeholder="Type your instructions here."
-            className="w-full h-full bg-transparent p-2 resize-none outline-none leading-[3rem] whitespace-pre relative z-10"
-            style={{ lineHeight: '3rem' }}
+            className="w-full h-full bg-transparent p-2 resize-none outline-none leading-[3rem] whitespace-pre relative z-20"
+            style={{ lineHeight: '3rem', color: 'transparent', caretColor: 'white' }}
           />
           {/* Highlight overlay for current line */}
           {highlightedLine >= 0 && (
