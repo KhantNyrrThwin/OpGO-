@@ -113,12 +113,16 @@ export default function InstructionInput() {
     instructionLines.forEach((line, index) => {
       const trimmedLine = line.trim();
       
-      // Skip empty lines
-      if (trimmedLine === '') return;
+      // Skip empty and full-line comments
+      if (trimmedLine === '' || trimmedLine.startsWith('//') || trimmedLine.startsWith(';')) return;
+
+      // Remove inline comments and continue with code-only part
+      const codeOnly = trimmedLine.split('//')[0].trim();
+      if (codeOnly === '') return;
 
       // Split label if present
-      const labelSplit = trimmedLine.split(':');
-      let instructionPart = trimmedLine;
+      const labelSplit = codeOnly.split(':');
+      let instructionPart = codeOnly;
 
       if (labelSplit.length === 2) {
         const label = labelSplit[0].trim();
