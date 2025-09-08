@@ -18,6 +18,7 @@ export type Flags = {
 	carry: number;
 };
 
+
 // Helper function to convert number to hex nibble
 export const toHexNibble = (value: number): string => {
 	const clamped = Math.max(0, Math.min(15, value | 0));

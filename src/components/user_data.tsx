@@ -103,24 +103,21 @@ const App = () => {
   };
 
   return (
-    <div className="bg-black p-6 rounded-2xl shadow-lg   w-full max-w-md mx-auto my-2 font-sans text-white">
+    <div className="bg-black p-6 rounded-2xl shadow-lg w-full max-w-md mx-auto my-2 font-sans text-white">
       <div className="flex flex-col items-center">
-       
+        <img src={UserData} className="w-35.5 h-[15%] mt-0 " />
+        <div className="w-full text-center py-2 text-gray-500 border-b border-gray-700 mb-4"></div>
 
-        <img src={UserData} className="w-35.5 h-[15%] mt-0" />
 
-         {/* Placeholder for the image */}
-         <div className="w-full text-center py-2 text-gray-500 border-b border-gray-700 mb-4">
-          
-          </div>
-
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-700 text-gray-400">
-              <th className="text-left py-2 px-4">Address</th>
-              <th className="text-left py-2 px-4">Data</th>
-            </tr>
-          </thead>
+         {/* Make table scrollable */}
+        <div className="w-full" style={{ maxHeight: '480px', overflowY: 'auto' }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-700 text-gray-400">
+                <th className="text-left py-2 px-4">Address</th>
+                <th className="text-left py-2 px-4">Data</th>
+              </tr>
+            </thead>
           <tbody>
             {memory.length > 0 ? (
               memory.map((row, index) => (
@@ -191,6 +188,7 @@ const App = () => {
           </button>
         )}
       </div>
+    </div>
     </div>
   );
 };
