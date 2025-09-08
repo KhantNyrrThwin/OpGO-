@@ -33,3 +33,5 @@ export * from './lda';
 export * from './add';
 export * from './store';
 export * from './hlt';
+export * from './dcx';
+export * from './inx';

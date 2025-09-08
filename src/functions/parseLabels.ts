@@ -9,9 +9,14 @@ export function parseLabels(content: string): Record<string, number> {
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    if (trimmed === '' || trimmed.startsWith(';')) continue;
+    // Skip empty and full-line comments (// or ;)
+    if (trimmed === '' || trimmed.startsWith('//') || trimmed.startsWith(';')) continue;
 
-    const labelMatch = /^([a-z_][a-z0-9_]*)\s*:\s*(.+)$/i.exec(trimmed);
+    // Remove inline // comments before matching labels
+    const codeOnly = trimmed.split('//')[0].trim();
+    if (codeOnly === '') continue;
+
+    const labelMatch = /^([a-z_][a-z0-9_]*)\s*:\s*(.+)$/i.exec(codeOnly);
     if (labelMatch) {
       const label = labelMatch[1];
       labelMap[label] = i;

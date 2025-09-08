@@ -113,12 +113,16 @@ export default function InstructionInput() {
     instructionLines.forEach((line, index) => {
       const trimmedLine = line.trim();
       
-      // Skip empty lines
-      if (trimmedLine === '') return;
+      // Skip empty and full-line comments
+      if (trimmedLine === '' || trimmedLine.startsWith('//') || trimmedLine.startsWith(';')) return;
+
+      // Remove inline comments and continue with code-only part
+      const codeOnly = trimmedLine.split('//')[0].trim();
+      if (codeOnly === '') return;
 
       // Split label if present
-      const labelSplit = trimmedLine.split(':');
-      let instructionPart = trimmedLine;
+      const labelSplit = codeOnly.split(':');
+      let instructionPart = codeOnly;
 
       if (labelSplit.length === 2) {
         const label = labelSplit[0].trim();
@@ -168,7 +172,8 @@ export default function InstructionInput() {
       const instruction = jumpMnemonics.includes(opcode)
         ? opcode + raw.slice(opcode.length) // lowercase only the mnemonic
         : raw.toLowerCase(); // lowercase entire instruction for others
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta' ];
+  const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta','inx','dcx' ];
+  
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
@@ -638,6 +643,48 @@ export default function InstructionInput() {
                 type: 'syntax'
               });
             }
+          }
+        }
+      }
+
+      // === INX === (Increment Register Pair)
+      if (instructionType === 'inx') {
+        const parts = instruction.split(/\s+/);
+        if (parts.length !== 2) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: INX requires exactly one register-pair operand (B, D or H)`,
+            type: 'syntax'
+          });
+        } else {
+          const inxPattern = /^inx\s+[bdh]$/i;
+          if (!inxPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: INX requires a valid register pair (B, D or H) (e.g., INX H)`,
+              type: 'syntax'
+            });
+          }
+        }
+      }
+
+      // === DCX === (Decrement Register Pair)
+      if (instructionType === 'dcx') {
+        const parts = instruction.split(/\s+/);
+        if (parts.length !== 2) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: DCX requires exactly one register-pair operand (B, D or H)`,
+            type: 'syntax'
+          });
+        } else {
+          const dcxPattern = /^dcx\s+[bdh]$/i;
+          if (!dcxPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DCX requires a valid register pair (B, D or H) (e.g., DCX H)`,
+              type: 'syntax'
+            });
           }
         }
       }
