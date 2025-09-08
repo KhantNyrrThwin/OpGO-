@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import UserData from "../assets/UserData.png"
 
 // Define a type for a single row of memory data.
@@ -14,6 +14,50 @@ const App = () => {
   
   // Define a type for the editing cell state.
   const [editingCell, setEditingCell] = useState<{ rowIndex: number | null; column: 'address' | 'data' | null }>({ rowIndex: null, column: null });
+      useEffect(() => {
+      const handleRequestMemory = () => {
+        // Convert your memory data to a number array
+        const memoryArray = new Array(65536).fill(0); // 64KB memory
+        memory.forEach((row) => {
+          const address = parseInt(row.address.replace('H', ''), 16);
+          const value = parseInt(row.data.replace('H', ''), 16);
+          memoryArray[address] = value;
+        });
+        
+        window.dispatchEvent(new CustomEvent('getMemory', { detail: memoryArray }));
+      };
+
+      window.addEventListener('requestMemory', handleRequestMemory);
+      
+      return () => {
+        window.removeEventListener('requestMemory', handleRequestMemory);
+      };
+    }, [memory]); // Add memory to dependency array
+
+        // In UserData component, add useEffect to listen for memory updates
+    useEffect(() => {
+      const handleSetMemory = (event: CustomEvent) => {
+        const memoryArray = event.detail as number[];
+        // Convert memory array back to your table format if needed
+        const newMemoryRows: MemoryRow[] = [];
+        memoryArray.forEach((value, index) => {
+          if (value !== 0) { // Only show non-zero values or all if desired
+            newMemoryRows.push({
+              address: index.toString(16).toUpperCase().padStart(4, '0') + 'H',
+              data: value.toString(16).toUpperCase().padStart(2, '0') + 'H'
+            });
+          }
+        });
+        setMemory(newMemoryRows);
+      };
+
+      window.addEventListener('setMemory', handleSetMemory as EventListener);
+      
+      return () => {
+        window.removeEventListener('setMemory', handleSetMemory as EventListener);
+      };
+    }, []);
+
 
   // Function to convert a hex string to an integer, increment it, and convert it back to a padded hex string.
   const incrementHexAddress = (hexString: string): string => {
