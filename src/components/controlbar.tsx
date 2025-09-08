@@ -38,6 +38,8 @@ import { executeADD } from '../functions/add';
 // Add this import with the other imports
 import { executeLDA } from '../functions/lda';
 import { executeSTA } from '../functions/store';
+import { executeINX } from '../functions/inx';
+import { executeDCX } from '../functions/dcx';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
 export default function ControlBar() {
@@ -318,6 +320,12 @@ case 'cpi':
     case 'dcr':
     result = executeDCR(nextInstruction, regs, cpuFlags);
     break;
+    case 'inx':
+      result = executeINX(nextInstruction, regs, cpuFlags);
+      break;
+    case 'dcx':
+      result = executeDCX(nextInstruction, regs, cpuFlags);
+      break;
     //Raven
           case 'subi':
             result = executeSUBI(nextInstruction, regs, cpuFlags);
@@ -582,6 +590,12 @@ case 'cpi':
             case 'dcr':
             result = executeDCR(nextInstruction, regs, currentFlags);
             break;
+            case 'inx':
+              result = executeINX(nextInstruction, regs, currentFlags);
+              break;
+            case 'dcx':
+              result = executeDCX(nextInstruction, regs, currentFlags);
+              break;
             //Raven
             case 'cmp':
             result = executeCMP(nextInstruction, regs, currentFlags);
