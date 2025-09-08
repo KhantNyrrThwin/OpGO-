@@ -29,4 +29,7 @@ export * from './sub';
 export * from './subb';
 export * from './cmp';
 export * from './cpi';
+export * from './lda';
+export * from './add';
+export * from './store';
 export * from './hlt';

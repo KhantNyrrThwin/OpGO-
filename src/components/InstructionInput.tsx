@@ -168,43 +168,77 @@ export default function InstructionInput() {
       const instruction = jumpMnemonics.includes(opcode)
         ? opcode + raw.slice(opcode.length) // lowercase only the mnemonic
         : raw.toLowerCase(); // lowercase entire instruction for others
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt'];
-
-
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta' ];
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
         if (!validInstructions.includes(instructionType)) {          validationErrors.push({
             line: index,
+
             message: `Line ${index + 1}: Invalid instruction "${instructionType}".`,
             type: 'invalid_instruction'
           });
         }
-        
-        // === MOV === (two operands: MOV A,B)
-        if (instructionType === 'mov') {
-          const parts = instruction.split(/\s+/);
-          if (parts.length < 3) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MOV requires two registers (e.g., MOV A,B)`,
-              type: 'syntax'
-            });
-          } else if (parts.length > 3) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MOV has too many operands`,
-              type: 'syntax'
-            });
-          } else if (!/^[abcdehl]$/i.test(parts[1].replace(',', '')) || !/^[abcdehl]$/i.test(parts[2])) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L)`,
-              type: 'syntax'
-            });
+                    // Should already have MOV validation (keep this as is):
+            if (instructionType === 'mov') {
+              const parts = instruction.split(/\s+/);
+              if (parts.length < 3) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: MOV requires two registers (e.g., MOV A,D)`,
+                  type: 'syntax'
+                });
+              } else if (parts.length > 3) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: MOV has too many operands`,
+                  type: 'syntax'
+                });
+              } else if (!/^[abcdehl]$/i.test(parts[1].replace(',', '')) || !/^[abcdehl]$/i.test(parts[2])) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L)`,
+                  type: 'syntax'
+                });
+              }
+            }
+        //BMM 
+         // === ADD === (register to accumulator: ADD B)
+          if (instructionType === 'add') {
+            const addPattern = /^add\s+[abcdehlm]$/i;
+            if (!addPattern.test(instruction)) {
+              validationErrors.push({
+                 line: index,
+                message: `Line ${index + 1}: ADD requires a valid register (A,B,C,D,E,H,L) or M for memory`,
+                type: 'syntax'
+              });
+            }
           }
-        }
-        
+                    
+          // Add LDA validation (after the ADD validation):
+          // === LDA === (load from memory address: LDA 2000H)
+          // In validateInstructions function, enhance LDA/STA validation:
+          if (instructionType === 'lda') {
+            const ldaPattern = /^lda\s+[0-9a-f]{1,4}h?$/i;
+            if (!ldaPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: LDA requires a valid 16-bit hex address (0000-FFFF)`,
+                type: 'syntax'
+              });
+            }
+          }
+
+          if (instructionType === 'sta') {
+            const staPattern = /^sta\s+[0-9a-f]{1,4}h?$/i;
+            if (!staPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: STA requires a valid 16-bit hex address (0000-FFFF)`,
+                type: 'syntax'
+              });
+            }
+          }
         // === MVI === (register + immediate hex: MVI A,05H)
         if (instructionType === 'mvi') {
           const parts = instruction.split(/\s+/);
