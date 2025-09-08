@@ -36,3 +36,5 @@ export * from './lxi';
 export * from './ldax';
 export * from './stax';
 export * from './hlt';
+export * from './dcx';
+export * from './inx';
