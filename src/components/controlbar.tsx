@@ -37,7 +37,7 @@ import { executeADD } from '../functions/add';
 //import { executeADD_M } from '../functions/add';
 // Add this import with the other imports
 import { executeLDA } from '../functions/lda';
-import { executeSTA } from '../functions/store';
+import { executeSTA } from '../functions/sta';
 import { executeINX } from '../functions/inx';
 import { executeDCX } from '../functions/dcx';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
@@ -200,33 +200,14 @@ export default function ControlBar() {
         // In stepInto function, add error handling:
         case 'lda':
           result = executeLDA(nextInstruction, regs, cpuFlags, memory);
-          if (result.error) {
-            window.dispatchEvent(new CustomEvent('externalErrors', { 
-              detail: [{ 
-                line: currentLineRef.current, 
-                message: result.error, 
-                type: 'syntax' 
-              }] 
-            }));
-            return;
-          }
           break;
-        case 'sta':
-          result = executeSTA(nextInstruction, regs, cpuFlags, memory);
-          if (result.error) {
-            window.dispatchEvent(new CustomEvent('externalErrors', { 
-              detail: [{ 
-                line: currentLineRef.current, 
-                message: result.error, 
-                type: 'syntax' 
-              }] 
-            }));
-            return;
+        case 'sta': {
+          const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
+          result = { registers: staResult.registers, flags: staResult.flags };
+          if (staResult.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: staResult.memory }));
           }
-          // Update memory state
-          if (result.memory !== memory) {
-            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
-          }
+        }
           break;
         case 'mov':
           result = executeMOV(nextInstruction, regs, cpuFlags);
@@ -483,11 +464,12 @@ case 'cpi':
           const opcode = nextInstruction.split(' ')[0].toLowerCase();
           switch (opcode) {
             // In handleRun function:
-            case 'sta':
+            case 'sta': {
             const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
             result = { registers: staResult.registers, flags: staResult.flags };
             memory = staResult.memory; // Update the current memory
             break;
+            }
             case 'lda':
               result = executeLDA(nextInstruction, regs, cpuFlags, memory);
             break;

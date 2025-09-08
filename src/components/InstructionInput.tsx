@@ -220,24 +220,48 @@ export default function InstructionInput() {
           // === LDA === (load from memory address: LDA 2000H)
           // In validateInstructions function, enhance LDA/STA validation:
           if (instructionType === 'lda') {
-            const ldaPattern = /^lda\s+[0-9a-f]{1,4}h?$/i;
-            if (!ldaPattern.test(instruction)) {
+            // Follow the same strict format used in src/functions/lda.ts: require an H suffix
+            const ldaPattern = /^lda\s+([0-9a-f]{1,4})h$/i;
+            const match = ldaPattern.exec(instruction);
+            if (!match) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: LDA requires a valid 16-bit hex address (0000-FFFF)`,
+                message: `Line ${index + 1}: Invalid LDA instruction format. Use: LDA XXXXH`,
                 type: 'syntax'
               });
+            } else {
+              // Validate that the parsed address fits in 16 bits
+              const addr = parseInt(match[1], 16);
+              if (Number.isNaN(addr) || addr > 0xffff) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: LDA address out of range (0000-FFFF)`,
+                  type: 'syntax'
+                });
+              }
             }
           }
 
           if (instructionType === 'sta') {
-            const staPattern = /^sta\s+[0-9a-f]{1,4}h?$/i;
-            if (!staPattern.test(instruction)) {
+            // Follow the same strict format used in src/functions/sta.ts: require an H suffix
+            const staPattern = /^sta\s+([0-9a-f]{1,4})h$/i;
+            const match = staPattern.exec(instruction);
+            if (!match) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: STA requires a valid 16-bit hex address (0000-FFFF)`,
+                message: `Line ${index + 1}: Invalid STA instruction format. Use: STA XXXXH`,
                 type: 'syntax'
               });
+            } else {
+              // Validate that the parsed address fits in 16 bits
+              const addr = parseInt(match[1], 16);
+              if (Number.isNaN(addr) || addr > 0xffff) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: STA address out of range (0000-FFFF)`,
+                  type: 'syntax'
+                });
+              }
             }
           }
         // === MVI === (register + immediate hex: MVI A,05H)

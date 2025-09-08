@@ -60,14 +60,18 @@ export function executeLDA(instruction: string, registers: Registers, flags: Fla
     const match = /^lda\s+([0-9a-f]{1,4})h$/i.exec(trimmed);
     
     if (!match) {
-        // If the instruction doesn't match the strict pattern, return an error
-        return { registers, flags, error: `Invalid LDA instruction format. Use: LDA XXXXH` };
+        // If the instruction doesn't match the strict pattern, do not return an error string.
+        // InstructionInput.tsx performs validation and will show user-facing messages.
+        console.warn(`LDA: invalid format, input="${instruction}"`);
+        return { registers, flags };
     }
 
     const address = parseHex(match[1]);
     // Optional: Check if address is within 16-bit range (0-65535)
     if (address > 0xFFFF) {
-        return { registers, flags, error: `Address ${match[1]}H is out of range.` };
+        // Out-of-range address — log for debugging. UI validation will report this to the user.
+        console.warn(`LDA: address out of range: ${match[1]}H`);
+        return { registers, flags };
     }
 
     const memoryValue = memory[address] || 0x00;

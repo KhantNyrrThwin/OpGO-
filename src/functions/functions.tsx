@@ -31,7 +31,7 @@ export * from './cmp';
 export * from './cpi';
 export * from './lda';
 export * from './add';
-export * from './store';
+export * from './sta';
 export * from './hlt';
 export * from './dcx';
 export * from './inx';
