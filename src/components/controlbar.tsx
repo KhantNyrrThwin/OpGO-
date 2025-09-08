@@ -321,7 +321,7 @@ export default function ControlBar() {
             break;
    // In the stepInto function, add this case to the switch statement:
         case 'add':
-          result = executeADD(nextInstruction, regs, cpuFlags);
+          result = executeADD(nextInstruction, regs, cpuFlags, memory);
           break;          
 //Raven
 case 'jc':
@@ -356,18 +356,26 @@ case 'jc':
   break;
   //Raven
   case 'cmp':
-    result = executeCMP(nextInstruction, regs, cpuFlags);
+    result = executeCMP(nextInstruction, regs, cpuFlags, memory);
     break;
 case 'cpi':
     result = executeCPI(nextInstruction, regs, cpuFlags);
     break;
   //Raven
   case 'inr':
-    result = executeINR(nextInstruction, regs, cpuFlags);
-    break;
+          result = executeINR(nextInstruction, regs, cpuFlags, memory);
+          // Update memory state
+          if (result.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+          }
+          break;
     case 'dcr':
-    result = executeDCR(nextInstruction, regs, cpuFlags);
-    break;
+          result = executeDCR(nextInstruction, regs, cpuFlags, memory);
+          // Update memory state
+          if (result.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+          }
+          break;
     case 'inx':
       result = executeINX(nextInstruction, regs, cpuFlags);
       break;
@@ -389,29 +397,29 @@ case 'cpi':
             break;
           //act
           case 'addc':
-            result = executeADDC(nextInstruction, regs, cpuFlags);
+            result = executeADDC(nextInstruction, regs, cpuFlags, memory);
             console.log("ADDC result:", result);
             break;
           case 'addi':
             result = executeADDI(nextInstruction, regs, cpuFlags);
             break;
           case 'sub':
-            result = executeSUB(nextInstruction, regs, cpuFlags);
+            result = executeSUB(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'subb':
-            result = executeSUBB(nextInstruction, regs, cpuFlags);
+            result = executeSUBB(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'divi':
             result = executeDIVI(nextInstruction, regs, cpuFlags);
             break;
           case 'and':
-            result = executeAND(nextInstruction, regs, cpuFlags);
+            result = executeAND(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'andi':
             result = executeANDI(nextInstruction, regs, cpuFlags);
             break;
           case 'or':
-            result = executeOR(nextInstruction, regs, cpuFlags);
+            result = executeOR(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'ori':
             result = executeORI(nextInstruction, regs, cpuFlags);
@@ -420,7 +428,7 @@ case 'cpi':
             result = executeNOT(nextInstruction, regs, cpuFlags);
             break;
           case 'xor':
-            result = executeXOR(nextInstruction, regs, cpuFlags);
+            result = executeXOR(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'xori':
             result = executeXORI(nextInstruction, regs, cpuFlags);
@@ -438,7 +446,21 @@ case 'cpi':
             }
             break;
           case 'mvi':
-            result = executeMVI(nextInstruction, regs, cpuFlags);
+            result = executeMVI(nextInstruction, regs, cpuFlags, memory);
+            if (result.error) {
+              window.dispatchEvent(new CustomEvent('externalErrors', { 
+                detail: [{ 
+                  line: currentLineRef.current, 
+                  message: result.error, 
+                  type: 'syntax' 
+                }] 
+              }));
+              return;
+            }
+            // Update memory state
+            if (result.memory !== memory) {
+              window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+            }
             break;
         default:
           return;
@@ -538,10 +560,30 @@ case 'cpi':
           switch (opcode) {
             // In handleRun function:
             case 'sta': {
-            const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
-            result = { registers: staResult.registers, flags: staResult.flags };
-            memory = staResult.memory; // Update the current memory
-            break;
+              const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
+
+              if (staResult.error) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: staResult.error,
+                    type: 'syntax'
+                  }]
+                }));
+                return; // ⛔ Block execution on error
+              }
+
+              result = {
+                registers: staResult.registers,
+                flags: staResult.flags
+              };
+
+              if (staResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: staResult.memory }));
+                memory = staResult.memory; // ✅ Update memory after dispatch
+              }
+
+              break;
             }
 
             case 'lda':
@@ -692,15 +734,39 @@ case 'cpi':
             break;
             // In the handleRun function, add this case to the switch statement:
             case 'add':
-            result = executeADD(nextInstruction, regs, cpuFlags);
+            result = executeADD(nextInstruction, regs, cpuFlags, memory);
             break;
             //Raven
-            case 'inr':
-            result = executeINR(nextInstruction, regs, currentFlags);
-            break;
-            case 'dcr':
-            result = executeDCR(nextInstruction, regs, currentFlags);
-            break;
+            case 'inr': {
+              const inrResult = executeINR(nextInstruction, regs, cpuFlags, memory);
+
+              result = {
+                registers: inrResult.registers,
+                flags: inrResult.flags
+              };
+
+              if (inrResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: inrResult.memory }));
+                memory = inrResult.memory; // ✅ Update memory after dispatch
+              }
+
+              break;
+            }
+            case 'dcr': {
+              const dcrResult = executeDCR(nextInstruction, regs, cpuFlags, memory);
+
+              result = {
+                registers: dcrResult.registers,
+                flags: dcrResult.flags
+              };
+
+              if (dcrResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: dcrResult.memory }));
+                memory = dcrResult.memory; // ✅ Update memory after dispatch
+              }
+
+              break;
+            }
             case 'inx':
               result = executeINX(nextInstruction, regs, currentFlags);
               break;
@@ -709,7 +775,7 @@ case 'cpi':
               break;
             //Raven
             case 'cmp':
-            result = executeCMP(nextInstruction, regs, currentFlags);
+            result = executeCMP(nextInstruction, regs, currentFlags, memory);
             // No jump handling needed for CMP - it just updates flags
             break;
             case 'cpi':
@@ -729,28 +795,28 @@ case 'cpi':
               result = executeDIV(nextInstruction, regs, currentFlags);
               break;
             case 'addc':
-              result = executeADDC(nextInstruction, regs, currentFlags);
+              result = executeADDC(nextInstruction, regs, currentFlags, memory);
               break;
             case 'addi':
               result = executeADDI(nextInstruction, regs, currentFlags);
               break;
             case 'sub':
-              result = executeSUB(nextInstruction, regs, currentFlags);
+              result = executeSUB(nextInstruction, regs, currentFlags, memory);
               break;
             case 'subb':
-              result = executeSUBB(nextInstruction, regs, currentFlags);
+              result = executeSUBB(nextInstruction, regs, currentFlags, memory);
               break;
             case 'divi':
               result = executeDIVI(nextInstruction, regs, currentFlags);
               break;
             case 'and':
-              result = executeAND(nextInstruction, regs, currentFlags);
+              result = executeAND(nextInstruction, regs, currentFlags, memory);
               break;
             case 'andi':
               result = executeANDI(nextInstruction, regs, currentFlags);
               break;
             case 'or':
-              result = executeOR(nextInstruction, regs, currentFlags);
+              result = executeOR(nextInstruction, regs, currentFlags, memory);
               break;
             case 'ori':
               result = executeORI(nextInstruction, regs, currentFlags);
@@ -759,7 +825,7 @@ case 'cpi':
               result = executeNOT(nextInstruction, regs, currentFlags);
               break;
             case 'xor':
-              result = executeXOR(nextInstruction, regs, currentFlags);
+              result = executeXOR(nextInstruction, regs, currentFlags, memory);
               break;
             case 'xori':
               result = executeXORI(nextInstruction, regs, currentFlags);
@@ -784,9 +850,32 @@ case 'cpi':
                 return; // Exit the autoStep function
               }
               break;
-            case 'mvi':
-              result = executeMVI(nextInstruction, regs, currentFlags);
+            case 'mvi': {
+              const mviResult = executeMVI(nextInstruction, regs, cpuFlags, memory);
+
+              if (mviResult.error) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: mviResult.error,
+                    type: 'syntax'
+                  }]
+                }));
+                return; // ⛔ Block execution on error
+              }
+
+              result = {
+                registers: mviResult.registers,
+                flags: mviResult.flags
+              };
+
+              if (mviResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: mviResult.memory }));
+                memory = mviResult.memory; // ✅ Update memory after dispatch
+              }
+
               break;
+            }
             default:
               return;
           }

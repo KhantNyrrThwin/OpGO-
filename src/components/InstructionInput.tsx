@@ -328,7 +328,7 @@ export default function InstructionInput() {
               type: 'syntax'
             });
           } else {
-            const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
+            const mviPattern = /^mvi\s+[abcdehlm]\s*,\s*[0-9a-f]{2}h$/i;
             if (!mviPattern.test(instruction)) {
               validationErrors.push({
                 line: index,
@@ -342,7 +342,7 @@ export default function InstructionInput() {
       // === AND === (one register: AND A)
         if (instructionType === 'and') {
           // More flexible parsing for AND that handles cases with and without spaces
-          const andPattern = /^and\s*[abcdehl]$/i;
+          const andPattern = /^and\s*[abcdehlm]$/i;
           if (!andPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -368,7 +368,7 @@ export default function InstructionInput() {
         // === OR === (one register: OR A)
         if (instructionType === 'or') {
           // More flexible parsing for OR that handles cases with and without spaces
-          const orPattern = /^or\s*[abcdehl]$/i;
+          const orPattern = /^or\s*[abcdehlm]$/i;
           if (!orPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -394,7 +394,7 @@ export default function InstructionInput() {
         // === XOR === (one register: XOR A)
         if (instructionType === 'xor') {
           // More flexible parsing for XOR that handles cases with and without spaces
-          const xorPattern = /^xor\s*[abcdehl]$/i;
+          const xorPattern = /^xor\s*[abcdehlm]$/i;
           if (!xorPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -587,18 +587,7 @@ export default function InstructionInput() {
             });
           }
         }
-        
-        // Check MVI instruction format (require two hex digits followed by 'H')
-        if (instructionType === 'mvi') {
-          const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
-          if (!mviPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MVI immediate must be two hex digits followed by 'H' (e.g., MVI A,05H)`,
-              type: 'syntax'
-            });
-          }
-        }
+      
 
       // === JC === (Jump if Carry)
       if (instructionType === 'jc') {
@@ -667,11 +656,11 @@ export default function InstructionInput() {
               type: 'syntax'
             });
           } else {
-            const inrPattern = /^inr\s+[abcdehl]$/i;
+            const inrPattern = /^inr\s+[abcdehlm]$/i;
             if (!inrPattern.test(instruction)) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: INR requires a valid register (A,B,C,D,E,H,L)`,
+                message: `Line ${index + 1}: INR requires a valid register (A,B,C,D,E,H,L,M)`,
                 type: 'syntax'
               });
             }
@@ -703,11 +692,11 @@ export default function InstructionInput() {
               type: 'syntax'
             });
           } else {
-            const dcrPattern = /^dcr\s+[abcdehl]$/i;
+            const dcrPattern = /^dcr\s+[abcdehlm]$/i;
             if (!dcrPattern.test(instruction)) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: DCR requires a valid register (A,B,C,D,E,H,L)`,
+                message: `Line ${index + 1}: DCR requires a valid register (A,B,C,D,E,H,L,M)`,
                 type: 'syntax'
               });
             }
@@ -771,7 +760,7 @@ if (instructionType === 'cpi') {
 
 // === CMP === (Compare Register)
 if (instructionType === 'cmp') {
-  const cmpPattern = /^cmp\s+[abcdehl]$/i;
+  const cmpPattern = /^cmp\s+[abcdehlm]$/i;
   if (!cmpPattern.test(instruction)) {
     validationErrors.push({
       line: index,
@@ -808,7 +797,7 @@ if (instructionType === 'cmp') {
 
         // === ADDC === (Add with Carry)
         if (instructionType === 'addc') {
-          const addcPattern = /^addc\s+[abcdehl]$/i;
+          const addcPattern = /^addc\s+[abcdehlm]$/i;
           if (!addcPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -832,7 +821,7 @@ if (instructionType === 'cmp') {
         
         // === SUB === (Subtract)
         if (instructionType === 'sub') {
-          const subPattern = /^sub\s+[abcdehl]$/i;
+          const subPattern = /^sub\s+[abcdehlm]$/i;
           if (!subPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -844,7 +833,7 @@ if (instructionType === 'cmp') {
         
         // === SUBB === (Subtract with Borrow)
         if (instructionType === 'subb') {
-          const subbPattern = /^subb\s+[abcdehl]$/i;
+          const subbPattern = /^subb\s+[abcdehlm]$/i;
           if (!subbPattern.test(instruction)) {
             validationErrors.push({
               line: index,
