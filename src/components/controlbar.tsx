@@ -946,7 +946,7 @@ case 'cpi':
 
   
   return (
-    <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative z-15">
+    <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative z-25">
       {/* File Menu */}
       <div className="relative">
         <button
@@ -960,7 +960,7 @@ case 'cpi':
         </button>
 
         {showDropdown && (
-          <div className="absolute top-8 left-0 bg-[#3a3a3a] border border-gray-600 rounded shadow-lg z-10">
+          <div className="absolute top-8 left-0 bg-[#3a3a3a] border border-gray-600 rounded shadow-lg z-25">
             <ul className="flex flex-col text-left">
               <li 
                 className="px-10 py-4 hover:bg-green-700 cursor-pointer"
