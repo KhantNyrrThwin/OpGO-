@@ -986,12 +986,7 @@ case 'cpi':
               >
                 Export as .asm
               </li>
-              <li 
-                className="px-8 py-4 hover:bg-green-700 cursor-pointer"
-                onClick={handleExportHex}
-              >
-                Export as .hex
-              </li>
+             
             </ul>
           </div>
         )}
