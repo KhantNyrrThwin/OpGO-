@@ -14,6 +14,8 @@ interface FileContextType {
   saveAsFile: () => Promise<void>;
   handleSaveWithName: (fileName: string, content: string) => Promise<void>;
   resetFileName: () => void; // 
+  exportAsAsm: (content: string, outFileName?: string) => Promise<void>;
+  exportAsHex: (content: string, outFileName?: string) => Promise<void>;
 }
 
 const FileContext = createContext<FileContextType | undefined>(undefined);
@@ -86,14 +88,14 @@ const parseContentFrom8085 = (content: string): string => {
   return lines.join('\n');
 };
 
-export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
-  const [fileName, setFileName] = useState('Untitled.mpc');
+export const FileProvider: React.FC<FileProviderProps> = ({ children }: FileProviderProps) => {
+  const [fileName, setFileName] = useState('Untitled.opgo');
   const [filePath, setFilePath] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showFileNameDialog, setShowFileNameDialog] = useState(false);
 
   const resetFileName = () => {
-    setFileName('untitled.mpc'); // or 'untitled.mpc' if preferred
+    setFileName('untitled.opgo');
     setFilePath(null);
     setHasUnsavedChanges(false);
   };
@@ -102,15 +104,22 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
     return new Promise((resolve, reject) => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = '.mpc';
+      input.accept = '.opgo,.opg,.mpc';
       input.onchange = (event) => {
         const file = (event.target as HTMLInputElement).files?.[0];
         if (file) {
           const reader = new FileReader();
           reader.onload = (e) => {
             const content = e.target?.result as string;
-            // Parse content from 8085 simulator format
-            const normalizedContent = parseContentFrom8085(content);
+            const lower = file.name.toLowerCase();
+            let normalizedContent = content;
+            if (lower.endsWith('.mpc')) {
+              // Parse content from 8085 simulator format
+              normalizedContent = parseContentFrom8085(content);
+            } else if (lower.endsWith('.opgo') || lower.endsWith('.opg')) {
+              // .opgo is plain text in our own syntax, use as-is
+              normalizedContent = content;
+            }
             setFileName(file.name);
             setFilePath(file.name);
             setHasUnsavedChanges(false);
@@ -127,9 +136,11 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
   };
 
   const saveFile = async (content: string): Promise<void> => {
-    if (filePath && fileName !== 'Untitled.mpc') {
-      const formattedContent = formatContentFor8085(content);
-      const blob = new Blob([formattedContent], { type: 'text/plain; charset=utf-8' });
+    if (filePath && fileName !== 'Untitled.opgo') {
+      const lower = fileName.toLowerCase();
+      const shouldFormatAsMpc = lower.endsWith('.mpc');
+      const dataToWrite = shouldFormatAsMpc ? formatContentFor8085(content) : content;
+      const blob = new Blob([dataToWrite], { type: 'text/plain; charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -149,8 +160,10 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
   };
 
   const handleSaveWithName = async (finalFileName: string, content: string): Promise<void> => {
-    const formattedContent = formatContentFor8085(content);
-    const blob = new Blob([formattedContent], { type: 'text/plain; charset=utf-8' });
+    const lower = finalFileName.toLowerCase();
+    const shouldFormatAsMpc = lower.endsWith('.mpc');
+    const dataToWrite = shouldFormatAsMpc ? formatContentFor8085(content) : content;
+    const blob = new Blob([dataToWrite], { type: 'text/plain; charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -164,6 +177,48 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
     setFilePath(finalFileName);
     setHasUnsavedChanges(false);
     setShowFileNameDialog(false);
+  };
+
+  const exportAsAsm = async (content: string, outFileName?: string): Promise<void> => {
+    const inputLines = content.split('\n');
+    const asmLines = inputLines.map((line) => {
+      const withoutTrailingWhitespace = line.replace(/\s+$/, '');
+      return withoutTrailingWhitespace.replace(/;\s*$/, '');
+    });
+    const asmContent = asmLines.join('\n');
+    const baseName = (outFileName || fileName || 'program').replace(/\.[^/.]+$/, '');
+    const downloadName = `${baseName}.asm`;
+    const blob = new Blob([asmContent], { type: 'text/plain; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportAsHex = async (content: string, outFileName?: string): Promise<void> => {
+    // Placeholder implementation. A real assembler is required for accurate machine code.
+    const header = '; OpGo!! HEX export is not fully implemented yet.\n';
+    const note = '; This file is a placeholder. Replace with real hex output when assembler is ready.\n';
+    const body = content
+      .split('\n')
+      .map((l) => `; ${l}`)
+      .join('\n');
+    const hexContent = `${header}${note}\n${body}\n`;
+    const baseName = (outFileName || fileName || 'program').replace(/\.[^/.]+$/, '');
+    const downloadName = `${baseName}.hex`;
+    const blob = new Blob([hexContent], { type: 'text/plain; charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const value: FileContextType = {
@@ -180,6 +235,8 @@ export const FileProvider: React.FC<FileProviderProps> = ({ children }) => {
     saveAsFile,
     handleSaveWithName,
     resetFileName, // 
+    exportAsAsm,
+    exportAsHex,
   };
 
   return (
