@@ -17,6 +17,7 @@ export default function InstructionInput() {
   const [isErrorPanelExpanded, setIsErrorPanelExpanded] = useState(false);
   const [selectedError, setSelectedError] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const { setHasUnsavedChanges } = useFileContext();
   const labelMap = parseLabels(instructions);
 
@@ -113,12 +114,19 @@ export default function InstructionInput() {
     instructionLines.forEach((line, index) => {
       const trimmedLine = line.trim();
       
-      // Skip empty lines
-      if (trimmedLine === '') return;
+      // Skip empty and full-line comments
+      if (trimmedLine === '' || trimmedLine.startsWith('//') || trimmedLine.startsWith(';')) return;
 
-      // Split label if present
-      const labelSplit = trimmedLine.split(':');
-      let instructionPart = trimmedLine;
+        // Remove inline '//' comment and treat anything after first ';' as comment
+        const beforeSlash = line.split('//')[0];
+        const semiIdxGlobal = beforeSlash.indexOf(';');
+        const codeForChecks = (semiIdxGlobal >= 0 ? beforeSlash.slice(0, semiIdxGlobal + 1) : beforeSlash).trim();
+        const codeForParse = (semiIdxGlobal >= 0 ? beforeSlash.slice(0, semiIdxGlobal + 1) : beforeSlash).trim();
+        if (codeForParse === '') return;
+
+      // Split label if present (using the part considered as code)
+      const labelSplit = codeForParse.split(':');
+      let instructionPart = codeForParse;
 
       if (labelSplit.length === 2) {
         const label = labelSplit[0].trim();
@@ -149,8 +157,8 @@ export default function InstructionInput() {
         return;
       }
       
-      // Check for semicolon
-      if (!instructionPart.endsWith(';')) {
+        // Check for semicolon at end of the code part (before any comment)
+        if (!codeForChecks.endsWith(';')) {
         validationErrors.push({
           line: index,
           message: `Line ${index + 1}: Instruction must end with semicolon (;)`,
@@ -168,7 +176,9 @@ export default function InstructionInput() {
       const instruction = jumpMnemonics.includes(opcode)
         ? opcode + raw.slice(opcode.length) // lowercase only the mnemonic
         : raw.toLowerCase(); // lowercase entire instruction for others
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta' ];
+
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta','inx','dcx', 'lxi', 'ldax', 'stax' ];
+  
       
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
@@ -194,10 +204,10 @@ export default function InstructionInput() {
                   message: `Line ${index + 1}: MOV has too many operands`,
                   type: 'syntax'
                 });
-              } else if (!/^[abcdehl]$/i.test(parts[1].replace(',', '')) || !/^[abcdehl]$/i.test(parts[2])) {
+              } else if (!/^[abcdehlm]$/i.test(parts[1].replace(',', '')) || !/^[abcdehlm]$/i.test(parts[2])) {
                 validationErrors.push({
                   line: index,
-                  message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L)`,
+                  message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L,M)`,
                   type: 'syntax'
                 });
               }
@@ -219,26 +229,89 @@ export default function InstructionInput() {
           // === LDA === (load from memory address: LDA 2000H)
           // In validateInstructions function, enhance LDA/STA validation:
           if (instructionType === 'lda') {
-            const ldaPattern = /^lda\s+[0-9a-f]{1,4}h?$/i;
-            if (!ldaPattern.test(instruction)) {
+            // Follow the same strict format used in src/functions/lda.ts: require an H suffix
+            const ldaPattern = /^lda\s+([0-9a-f]{1,4})h$/i;
+            const match = ldaPattern.exec(instruction);
+            if (!match) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: LDA requires a valid 16-bit hex address (0000-FFFF)`,
+                message: `Line ${index + 1}: Invalid LDA instruction format. Use: LDA XXXXH`,
+                type: 'syntax'
+              });
+            } else {
+              // Validate that the parsed address fits in 16 bits
+              const addr = parseInt(match[1], 16);
+              if (Number.isNaN(addr) || addr > 0xffff) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: LDA address out of range (0000-FFFF)`,
+                  type: 'syntax'
+                });
+              }
+            }
+          }
+
+          if (instructionType === 'sta') {
+            // Follow the same strict format used in src/functions/sta.ts: require an H suffix
+            const staPattern = /^sta\s+([0-9a-f]{1,4})h$/i;
+            const match = staPattern.exec(instruction);
+            if (!match) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: Invalid STA instruction format. Use: STA XXXXH`,
+                type: 'syntax'
+              });
+            } else {
+              // Validate that the parsed address fits in 16 bits
+              const addr = parseInt(match[1], 16);
+              if (Number.isNaN(addr) || addr > 0xffff) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: STA address out of range (0000-FFFF)`,
+                  type: 'syntax'
+                });
+              }
+            }
+          }
+
+          // === LDAX === (load accumulator from memory via register pair: LDAX B or LDAX D)
+          if (instructionType === 'ldax') {
+            const ldaxPattern = /^ldax\s+(b|d)$/i;
+            if (!ldaxPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: LDAX requires a valid register pair (B or D)`,
                 type: 'syntax'
               });
             }
           }
 
-          if (instructionType === 'sta') {
-            const staPattern = /^sta\s+[0-9a-f]{1,4}h?$/i;
-            if (!staPattern.test(instruction)) {
+          // === STAX === (store accumulator into memory via register pair: STAX B or STAX D)
+          if (instructionType === 'stax') {
+            const staxPattern = /^stax\s+(b|d)$/i;
+            if (!staxPattern.test(instruction)) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: STA requires a valid 16-bit hex address (0000-FFFF)`,
+                message: `Line ${index + 1}: STAX requires a valid register pair (B or D)`,
                 type: 'syntax'
               });
             }
           }
+
+
+
+          // === LXI === (load 16-bit address into register pair: LXI H, 2000H)
+          if (instructionType === 'lxi') {
+            const lxiPattern = /^lxi\s+(b|d|h),\s*[0-9a-f]{1,4}h$/i;
+            if (!lxiPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: LXI requires a valid register pair (B, D, H) and a 16-bit hex address (e.g., LXI H, 2000H)`,
+                type: 'syntax'
+              });
+            }
+          }
+
         // === MVI === (register + immediate hex: MVI A,05H)
         if (instructionType === 'mvi') {
           const parts = instruction.split(/\s+/);
@@ -255,7 +328,7 @@ export default function InstructionInput() {
               type: 'syntax'
             });
           } else {
-            const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
+            const mviPattern = /^mvi\s+[abcdehlm]\s*,\s*[0-9a-f]{2}h$/i;
             if (!mviPattern.test(instruction)) {
               validationErrors.push({
                 line: index,
@@ -269,7 +342,7 @@ export default function InstructionInput() {
       // === AND === (one register: AND A)
         if (instructionType === 'and') {
           // More flexible parsing for AND that handles cases with and without spaces
-          const andPattern = /^and\s*[abcdehl]$/i;
+          const andPattern = /^and\s*[abcdehlm]$/i;
           if (!andPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -295,7 +368,7 @@ export default function InstructionInput() {
         // === OR === (one register: OR A)
         if (instructionType === 'or') {
           // More flexible parsing for OR that handles cases with and without spaces
-          const orPattern = /^or\s*[abcdehl]$/i;
+          const orPattern = /^or\s*[abcdehlm]$/i;
           if (!orPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -321,7 +394,7 @@ export default function InstructionInput() {
         // === XOR === (one register: XOR A)
         if (instructionType === 'xor') {
           // More flexible parsing for XOR that handles cases with and without spaces
-          const xorPattern = /^xor\s*[abcdehl]$/i;
+          const xorPattern = /^xor\s*[abcdehlm]$/i;
           if (!xorPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -514,18 +587,7 @@ export default function InstructionInput() {
             });
           }
         }
-        
-        // Check MVI instruction format (require two hex digits followed by 'H')
-        if (instructionType === 'mvi') {
-          const mviPattern = /^mvi\s+[abcdehl]\s*,\s*[0-9a-f]{2}h$/i;
-          if (!mviPattern.test(instruction)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: MVI immediate must be two hex digits followed by 'H' (e.g., MVI A,05H)`,
-              type: 'syntax'
-            });
-          }
-        }
+      
 
       // === JC === (Jump if Carry)
       if (instructionType === 'jc') {
@@ -594,11 +656,11 @@ export default function InstructionInput() {
               type: 'syntax'
             });
           } else {
-            const inrPattern = /^inr\s+[abcdehl]$/i;
+            const inrPattern = /^inr\s+[abcdehlm]$/i;
             if (!inrPattern.test(instruction)) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: INR requires a valid register (A,B,C,D,E,H,L)`,
+                message: `Line ${index + 1}: INR requires a valid register (A,B,C,D,E,H,L,M)`,
                 type: 'syntax'
               });
             }
@@ -630,14 +692,56 @@ export default function InstructionInput() {
               type: 'syntax'
             });
           } else {
-            const dcrPattern = /^dcr\s+[abcdehl]$/i;
+            const dcrPattern = /^dcr\s+[abcdehlm]$/i;
             if (!dcrPattern.test(instruction)) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: DCR requires a valid register (A,B,C,D,E,H,L)`,
+                message: `Line ${index + 1}: DCR requires a valid register (A,B,C,D,E,H,L,M)`,
                 type: 'syntax'
               });
             }
+          }
+        }
+      }
+
+      // === INX === (Increment Register Pair)
+      if (instructionType === 'inx') {
+        const parts = instruction.split(/\s+/);
+        if (parts.length !== 2) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: INX requires exactly one register-pair operand (B, D or H)`,
+            type: 'syntax'
+          });
+        } else {
+          const inxPattern = /^inx\s+[bdh]$/i;
+          if (!inxPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: INX requires a valid register pair (B, D or H) (e.g., INX H)`,
+              type: 'syntax'
+            });
+          }
+        }
+      }
+
+      // === DCX === (Decrement Register Pair)
+      if (instructionType === 'dcx') {
+        const parts = instruction.split(/\s+/);
+        if (parts.length !== 2) {
+          validationErrors.push({
+            line: index,
+            message: `Line ${index + 1}: DCX requires exactly one register-pair operand (B, D or H)`,
+            type: 'syntax'
+          });
+        } else {
+          const dcxPattern = /^dcx\s+[bdh]$/i;
+          if (!dcxPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DCX requires a valid register pair (B, D or H) (e.g., DCX H)`,
+              type: 'syntax'
+            });
           }
         }
       }
@@ -656,7 +760,7 @@ if (instructionType === 'cpi') {
 
 // === CMP === (Compare Register)
 if (instructionType === 'cmp') {
-  const cmpPattern = /^cmp\s+[abcdehl]$/i;
+  const cmpPattern = /^cmp\s+[abcdehlm]$/i;
   if (!cmpPattern.test(instruction)) {
     validationErrors.push({
       line: index,
@@ -693,7 +797,7 @@ if (instructionType === 'cmp') {
 
         // === ADDC === (Add with Carry)
         if (instructionType === 'addc') {
-          const addcPattern = /^addc\s+[abcdehl]$/i;
+          const addcPattern = /^addc\s+[abcdehlm]$/i;
           if (!addcPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -717,7 +821,7 @@ if (instructionType === 'cmp') {
         
         // === SUB === (Subtract)
         if (instructionType === 'sub') {
-          const subPattern = /^sub\s+[abcdehl]$/i;
+          const subPattern = /^sub\s+[abcdehlm]$/i;
           if (!subPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -729,7 +833,7 @@ if (instructionType === 'cmp') {
         
         // === SUBB === (Subtract with Borrow)
         if (instructionType === 'subb') {
-          const subbPattern = /^subb\s+[abcdehl]$/i;
+          const subbPattern = /^subb\s+[abcdehlm]$/i;
           if (!subbPattern.test(instruction)) {
             validationErrors.push({
               line: index,
@@ -750,6 +854,56 @@ if (instructionType === 'cmp') {
       textareaRef.current.focus();
     }
   }, []);
+
+  // Generate HTML with pale-green comments. Full-line comments start with // or ;
+  // Inline comments use // only to avoid conflict with required semicolon terminator.
+  const getCommentHighlightedHtml = (text: string): string => {
+    const escapeHtml = (str: string) =>
+      str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;');
+
+    const linesLocal = text.split('\n');
+    const htmlLines: string[] = [];
+    for (let i = 0; i < linesLocal.length; i++) {
+      const line = linesLocal[i];
+      const trimmed = line.trimStart();
+
+      // Determine if full-line comment (// or ;) after leading spaces
+      const leadingSpacesCount = line.length - trimmed.length;
+      const leadingSpaces = line.slice(0, leadingSpacesCount).replace(/ /g, '&nbsp;');
+
+      if (trimmed.startsWith('//') || trimmed.startsWith('/')) {
+        const commentHtml = `<span class=\"text-green-300\">${escapeHtml(trimmed)}</span>`;
+        htmlLines.push(`${leadingSpaces}${commentHtml}`);
+        continue;
+      }
+
+            // Inline comment using // or anything after first ;
+            const inlineSlashIdx = line.indexOf('//');
+            const semiIdx = line.indexOf('/');
+            const hasInlineSlash = inlineSlashIdx >= 0;
+            const hasInlineSemi = semiIdx >= 0;
+      
+            if (hasInlineSlash || hasInlineSemi) {
+              const splitIdx = Math.min(
+                hasInlineSlash ? inlineSlashIdx : Number.POSITIVE_INFINITY,
+                hasInlineSemi ? semiIdx : Number.POSITIVE_INFINITY
+              );
+              const codePart = line.slice(0, splitIdx);
+              const commentPart = line.slice(splitIdx);
+        const codeHtml = escapeHtml(codePart).replace(/ /g, '&nbsp;');
+        const commentHtml = `<span class=\"text-green-300\">${escapeHtml(commentPart)}</span>`;
+        htmlLines.push(codeHtml + commentHtml);
+      } else {
+        // No comment in this line
+        htmlLines.push(escapeHtml(line).replace(/ /g, '&nbsp;'));
+      }
+    }
+    return htmlLines.join('<br/>');
+  };
 
   useEffect(() => {
     const handleFileOpened = (event: CustomEvent) => {
@@ -786,7 +940,81 @@ if (instructionType === 'cmp') {
     };
   }, [instructions, setHasUnsavedChanges]);
 
+  // Sync overlay scroll with textarea scroll
+  const handleScroll = () => {
+    if (textareaRef.current && overlayRef.current) {
+      overlayRef.current.scrollTop = textareaRef.current.scrollTop;
+      overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  };
+
+   // Add // to the start of each selected line (or current line if none selected)
+   const commentSelection = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const selectionStart = textarea.selectionStart;
+    const selectionEnd = textarea.selectionEnd;
+
+    const fullText = instructions;
+
+    // Find start index of the first selected line
+    const firstLineStart = fullText.lastIndexOf('\n', selectionStart - 1) + 1;
+    // Find end index (exclusive) of the last selected line
+    const lastLineBreakIdx = fullText.indexOf('\n', selectionEnd);
+    const lastLineEnd = lastLineBreakIdx === -1 ? fullText.length : lastLineBreakIdx;
+
+    const before = fullText.slice(0, firstLineStart);
+    const target = fullText.slice(firstLineStart, lastLineEnd);
+    const after = fullText.slice(lastLineEnd);
+
+    const linesToComment = target.split('\n');
+
+    const commentedLines = linesToComment.map((line) => {
+       // Preserve leading spaces, then insert //
+       const leadingSpacesMatch = line.match(/^\s*/);
+       const leading = leadingSpacesMatch ? leadingSpacesMatch[0] : '';
+       const rest = line.slice(leading.length);
+       // If already a full-line comment starting with //, leave as is
+       if (rest.startsWith('//')) return line;
+       return `${leading}//${rest}`;
+     });
+ 
+     const updatedTarget = commentedLines.join('\n');
+     const updatedText = before + updatedTarget + after;
+     setInstructions(updatedText);
+     setHasUnsavedChanges(true);
+ 
+     // Adjust selection to cover the same logical region after inserting //
+     // Each affected line (including possibly empty) got 2 extra chars before its content
+     const affectedLinesCount = linesToComment.length;
+     const selectionStartShift = 2; // caret is at start line; after "//" insertion
+     const selectionEndShift = 2 * affectedLinesCount;
+ 
+     // If there was no selection (caret within a single line), keep caret after the inserted //
+     if (selectionStart === selectionEnd) {
+       const newCaret = selectionStart + selectionStartShift;
+       setTimeout(() => {
+         textarea.selectionStart = textarea.selectionEnd = newCaret;
+       }, 0);
+     } else {
+       // Expand selection by the number of inserted characters
+       const newStart = selectionStart + selectionStartShift;
+       const newEnd = selectionEnd + selectionEndShift;
+       setTimeout(() => {
+        textarea.selectionStart = newStart;
+        textarea.selectionEnd = newEnd;
+      }, 0);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+     // Ctrl+/ to comment selected lines
+     if (e.ctrlKey && (e.key === '/' || e.key === '?')) {
+      e.preventDefault();
+      commentSelection();
+      return;
+    }
     if (e.key === 'Tab') {
       e.preventDefault();
       const textarea = e.currentTarget;
@@ -968,6 +1196,13 @@ if (instructionType === 'cmp') {
         </div>
 
 <div className="flex-grow relative">
+          {/* Syntax-highlight overlay for comments */}
+          <div
+            ref={overlayRef}
+            className="absolute inset-0 z-10 whitespace-pre-wrap break-words font-mono p-2 text-white pointer-events-none overflow-hidden"
+            style={{ lineHeight: '3rem' }}
+            dangerouslySetInnerHTML={{ __html: getCommentHighlightedHtml(instructions) }}
+          />
           <textarea
             ref={textareaRef}
             spellCheck={false}
@@ -980,9 +1215,10 @@ if (instructionType === 'cmp') {
             setHasUnsavedChanges(true);
           }}
             onKeyDown={handleKeyDown}
+            onScroll={handleScroll}
             placeholder="Type your instructions here."
-            className="w-full h-full bg-transparent p-2 resize-none outline-none leading-[3rem] whitespace-pre relative z-10"
-            style={{ lineHeight: '3rem' }}
+            className="w-full h-full bg-transparent p-2 resize-none outline-none leading-[3rem] whitespace-pre relative z-20"
+            style={{ lineHeight: '3rem', color: 'transparent', caretColor: 'white' }}
           />
           {/* Highlight overlay for current line */}
           {highlightedLine >= 0 && (

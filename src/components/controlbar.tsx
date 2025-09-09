@@ -33,11 +33,13 @@ import { executeCPI } from '@/functions/cpi';
 import { executeHLT } from '../functions/hlt';
 import { parseLabels } from '../functions/parseLabels';
 import { executeADD } from '../functions/add';
-//import { executeADD_R } from '../functions/add';
-//import { executeADD_M } from '../functions/add';
-// Add this import with the other imports
 import { executeLDA } from '../functions/lda';
-import { executeSTA } from '../functions/store';
+import { executeSTA } from '../functions/sta';
+import { executeLXI } from '../functions/lxi';
+import { executeLDAX } from '../functions/ldax';
+import { executeSTAX } from '../functions/stax';
+import { executeINX } from '../functions/inx';
+import { executeDCX } from '../functions/dcx';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
 export default function ControlBar() {
@@ -113,13 +115,17 @@ export default function ControlBar() {
 
 
   const normalizeInstruction = (raw: string): string => {
-    const trimmed = raw.trim();
-    // Remove trailing semicolon if present, then collapse whitespace
-    const noSemi = trimmed.endsWith(';') ? trimmed.slice(0, -1) : trimmed;
-    
+    // Remove inline '//' comment first
+    const beforeSlash = raw.split('//')[0];
+    // Cut off anything after the first ';' (treat as terminator/comment boundary)
+    const semiIdx = beforeSlash.indexOf(';');
+    const beforeSemi = semiIdx >= 0 ? beforeSlash.slice(0, semiIdx) : beforeSlash;
+    const trimmed = beforeSemi.trim();
+    // Treat full-line comments beginning with ';' as comments
+    if (trimmed === '' || trimmed.startsWith('//') || trimmed.startsWith(';')) return '';
     // Remove inline label if present
-    const labelSplit = noSemi.split(':');
-    const instructionOnly = labelSplit.length === 2 ? labelSplit[1] : noSemi;
+    const labelSplit = trimmed.split(':');
+    const instructionOnly = labelSplit.length === 2 ? labelSplit[1] : trimmed;
 
     return instructionOnly.replace(/\s+/g, ' ').trim();
   };
@@ -128,9 +134,17 @@ export default function ControlBar() {
     const errors: Array<{ line: number; message: string; type: 'semicolon' }> = [];
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i += 1) {
-      const trimmed = lines[i].trim();
-      if (trimmed === '') continue;
-      if (!trimmed.endsWith(';')) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      // Skip empty and full-line comments (// or ;)
+      if (trimmed === '' || trimmed.startsWith('//') || trimmed.startsWith(';')) continue;
+      // Consider only code before inline '//' and treat anything after first ';' as comment
+      const beforeSlash = line.split('//')[0];
+      const semiIdx = beforeSlash.indexOf(';');
+      const codeForCheck = semiIdx >= 0 ? beforeSlash.slice(0, semiIdx + 1) : beforeSlash;
+      const check = codeForCheck.trim();
+      if (check === '') continue;
+      if (!/;\s*$/.test(check)) {
         errors.push({
           line: i,
           message: `Line ${i + 1}: Instruction must end with semicolon (;)`,
@@ -175,8 +189,13 @@ export default function ControlBar() {
 
     // Advance to next non-empty line
     const totalLines = rawLines.length;
-    while (currentLineRef.current < totalLines && rawLines[currentLineRef.current].trim() === '') {
-      currentLineRef.current += 1;
+    while (
+      currentLineRef.current < totalLines && (
+        rawLines[currentLineRef.current].trim() === '' ||
+        rawLines[currentLineRef.current].trim().startsWith('//') ||
+        rawLines[currentLineRef.current].trim().startsWith(';')
+      )
+    ) {      currentLineRef.current += 1;
     }
     if (currentLineRef.current >= totalLines) return;
 
@@ -198,6 +217,18 @@ export default function ControlBar() {
         // In stepInto function, add error handling:
         case 'lda':
           result = executeLDA(nextInstruction, regs, cpuFlags, memory);
+          break;
+        case 'sta': {
+          const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
+          result = { registers: staResult.registers, flags: staResult.flags };
+          if (staResult.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: staResult.memory }));
+              }
+        }
+          break;
+
+        case 'ldax':
+          result = executeLDAX(nextInstruction, regs, cpuFlags, memory);
           if (result.error) {
             window.dispatchEvent(new CustomEvent('externalErrors', { 
               detail: [{ 
@@ -209,8 +240,10 @@ export default function ControlBar() {
             return;
           }
           break;
-        case 'sta':
-          result = executeSTA(nextInstruction, regs, cpuFlags, memory);
+       
+        
+        case 'stax':
+          result = executeSTAX(nextInstruction, regs, cpuFlags, memory);
           if (result.error) {
             window.dispatchEvent(new CustomEvent('externalErrors', { 
               detail: [{ 
@@ -226,8 +259,25 @@ export default function ControlBar() {
             window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
           }
           break;
+        case 'lxi':
+          result = executeLXI(nextInstruction, regs, cpuFlags);
+          break;
         case 'mov':
-          result = executeMOV(nextInstruction, regs, cpuFlags);
+          result = executeMOV(nextInstruction, regs, cpuFlags, memory);
+          if (result.error) {
+            window.dispatchEvent(new CustomEvent('externalErrors', { 
+              detail: [{ 
+                line: currentLineRef.current, 
+                message: result.error, 
+                type: 'syntax' 
+              }] 
+            }));
+            return;
+          }
+          // Update memory state
+          if (result.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+          }
           break;
         case 'jmp':
             result = executeJMP(nextInstruction, regs, cpuFlags, labelMap);
@@ -271,7 +321,7 @@ export default function ControlBar() {
             break;
    // In the stepInto function, add this case to the switch statement:
         case 'add':
-          result = executeADD(nextInstruction, regs, cpuFlags);
+          result = executeADD(nextInstruction, regs, cpuFlags, memory);
           break;          
 //Raven
 case 'jc':
@@ -306,18 +356,32 @@ case 'jc':
   break;
   //Raven
   case 'cmp':
-    result = executeCMP(nextInstruction, regs, cpuFlags);
+    result = executeCMP(nextInstruction, regs, cpuFlags, memory);
     break;
 case 'cpi':
     result = executeCPI(nextInstruction, regs, cpuFlags);
     break;
   //Raven
   case 'inr':
-    result = executeINR(nextInstruction, regs, cpuFlags);
-    break;
+          result = executeINR(nextInstruction, regs, cpuFlags, memory);
+          // Update memory state
+          if (result.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+          }
+          break;
     case 'dcr':
-    result = executeDCR(nextInstruction, regs, cpuFlags);
-    break;
+          result = executeDCR(nextInstruction, regs, cpuFlags, memory);
+          // Update memory state
+          if (result.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+          }
+          break;
+    case 'inx':
+      result = executeINX(nextInstruction, regs, cpuFlags);
+      break;
+    case 'dcx':
+      result = executeDCX(nextInstruction, regs, cpuFlags);
+      break;
     //Raven
           case 'subi':
             result = executeSUBI(nextInstruction, regs, cpuFlags);
@@ -333,29 +397,29 @@ case 'cpi':
             break;
           //act
           case 'addc':
-            result = executeADDC(nextInstruction, regs, cpuFlags);
+            result = executeADDC(nextInstruction, regs, cpuFlags, memory);
             console.log("ADDC result:", result);
             break;
           case 'addi':
             result = executeADDI(nextInstruction, regs, cpuFlags);
             break;
           case 'sub':
-            result = executeSUB(nextInstruction, regs, cpuFlags);
+            result = executeSUB(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'subb':
-            result = executeSUBB(nextInstruction, regs, cpuFlags);
+            result = executeSUBB(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'divi':
             result = executeDIVI(nextInstruction, regs, cpuFlags);
             break;
           case 'and':
-            result = executeAND(nextInstruction, regs, cpuFlags);
+            result = executeAND(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'andi':
             result = executeANDI(nextInstruction, regs, cpuFlags);
             break;
           case 'or':
-            result = executeOR(nextInstruction, regs, cpuFlags);
+            result = executeOR(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'ori':
             result = executeORI(nextInstruction, regs, cpuFlags);
@@ -364,7 +428,7 @@ case 'cpi':
             result = executeNOT(nextInstruction, regs, cpuFlags);
             break;
           case 'xor':
-            result = executeXOR(nextInstruction, regs, cpuFlags);
+            result = executeXOR(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'xori':
             result = executeXORI(nextInstruction, regs, cpuFlags);
@@ -382,7 +446,21 @@ case 'cpi':
             }
             break;
           case 'mvi':
-            result = executeMVI(nextInstruction, regs, cpuFlags);
+            result = executeMVI(nextInstruction, regs, cpuFlags, memory);
+            if (result.error) {
+              window.dispatchEvent(new CustomEvent('externalErrors', { 
+                detail: [{ 
+                  line: currentLineRef.current, 
+                  message: result.error, 
+                  type: 'syntax' 
+                }] 
+              }));
+              return;
+            }
+            // Update memory state
+            if (result.memory !== memory) {
+              window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+            }
             break;
         default:
           return;
@@ -443,8 +521,14 @@ case 'cpi':
         // Check if we should stop
         if (!isRunningRef.current) break;
         
-        // Advance to next non-empty line
-        while (currentLineRef.current < rawLines.length && rawLines[currentLineRef.current].trim() === '') {
+           // Advance to next non-empty, non-comment line
+           while (
+            currentLineRef.current < rawLines.length && (
+              rawLines[currentLineRef.current].trim() === '' ||
+              rawLines[currentLineRef.current].trim().startsWith('//') ||
+              rawLines[currentLineRef.current].trim().startsWith(';')
+            )
+          ) {
           currentLineRef.current += 1;
         }
         
@@ -475,17 +559,94 @@ case 'cpi':
           const opcode = nextInstruction.split(' ')[0].toLowerCase();
           switch (opcode) {
             // In handleRun function:
-            case 'sta':
-            const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
-            result = { registers: staResult.registers, flags: staResult.flags };
-            memory = staResult.memory; // Update the current memory
-            break;
+            case 'sta': {
+              const staResult = executeSTA(nextInstruction, regs, cpuFlags, memory);
+
+              if (staResult.error) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: staResult.error,
+                    type: 'syntax'
+                  }]
+                }));
+                return; // ⛔ Block execution on error
+              }
+
+              result = {
+                registers: staResult.registers,
+                flags: staResult.flags
+              };
+
+              if (staResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: staResult.memory }));
+                memory = staResult.memory; // ✅ Update memory after dispatch
+              }
+
+              break;
+            }
+
             case 'lda':
               result = executeLDA(nextInstruction, regs, cpuFlags, memory);
             break;
-            case 'mov':
-              result = executeMOV(nextInstruction, regs, currentFlags);
+            case 'ldax':
+              result = executeLDAX(nextInstruction, regs, cpuFlags, memory);
+            break;
+            case 'stax': {
+              const staxResult = executeSTAX(nextInstruction, regs, cpuFlags, memory);
+
+              if (staxResult.error) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: staxResult.error,
+                    type: 'syntax'
+                  }]
+                }));
+                return; // ⛔ Block execution on error
+              }
+
+              result = {
+                registers: staxResult.registers,
+                flags: staxResult.flags
+              };
+
+              if (staxResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: staxResult.memory }));
+                memory = staxResult.memory; // ✅ Update memory after dispatch
+              }
+
               break;
+            }
+            case 'lxi':
+              result = executeLXI(nextInstruction, regs, currentFlags);
+              break;
+            case 'mov': {
+              const movResult = executeMOV(nextInstruction, regs, cpuFlags, memory);
+
+              if (movResult.error) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: movResult.error,
+                    type: 'syntax'
+                  }]
+                }));
+                return; // ⛔ Block execution on error
+              }
+
+              result = {
+                registers: movResult.registers,
+                flags: movResult.flags
+              };
+
+              if (movResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: movResult.memory }));
+                memory = movResult.memory; // ✅ Update memory after dispatch
+              }
+
+              break;
+            }
             case 'jmp':
               result = executeJMP(nextInstruction, regs, currentFlags, labelMap);
               if (result.jumpTo !== undefined) {
@@ -573,18 +734,48 @@ case 'cpi':
             break;
             // In the handleRun function, add this case to the switch statement:
             case 'add':
-            result = executeADD(nextInstruction, regs, cpuFlags);
+            result = executeADD(nextInstruction, regs, cpuFlags, memory);
             break;
             //Raven
-            case 'inr':
-            result = executeINR(nextInstruction, regs, currentFlags);
-            break;
-            case 'dcr':
-            result = executeDCR(nextInstruction, regs, currentFlags);
-            break;
+            case 'inr': {
+              const inrResult = executeINR(nextInstruction, regs, cpuFlags, memory);
+
+              result = {
+                registers: inrResult.registers,
+                flags: inrResult.flags
+              };
+
+              if (inrResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: inrResult.memory }));
+                memory = inrResult.memory; // ✅ Update memory after dispatch
+              }
+
+              break;
+            }
+            case 'dcr': {
+              const dcrResult = executeDCR(nextInstruction, regs, cpuFlags, memory);
+
+              result = {
+                registers: dcrResult.registers,
+                flags: dcrResult.flags
+              };
+
+              if (dcrResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: dcrResult.memory }));
+                memory = dcrResult.memory; // ✅ Update memory after dispatch
+              }
+
+              break;
+            }
+            case 'inx':
+              result = executeINX(nextInstruction, regs, currentFlags);
+              break;
+            case 'dcx':
+              result = executeDCX(nextInstruction, regs, currentFlags);
+              break;
             //Raven
             case 'cmp':
-            result = executeCMP(nextInstruction, regs, currentFlags);
+            result = executeCMP(nextInstruction, regs, currentFlags, memory);
             // No jump handling needed for CMP - it just updates flags
             break;
             case 'cpi':
@@ -604,28 +795,28 @@ case 'cpi':
               result = executeDIV(nextInstruction, regs, currentFlags);
               break;
             case 'addc':
-              result = executeADDC(nextInstruction, regs, currentFlags);
+              result = executeADDC(nextInstruction, regs, currentFlags, memory);
               break;
             case 'addi':
               result = executeADDI(nextInstruction, regs, currentFlags);
               break;
             case 'sub':
-              result = executeSUB(nextInstruction, regs, currentFlags);
+              result = executeSUB(nextInstruction, regs, currentFlags, memory);
               break;
             case 'subb':
-              result = executeSUBB(nextInstruction, regs, currentFlags);
+              result = executeSUBB(nextInstruction, regs, currentFlags, memory);
               break;
             case 'divi':
               result = executeDIVI(nextInstruction, regs, currentFlags);
               break;
             case 'and':
-              result = executeAND(nextInstruction, regs, currentFlags);
+              result = executeAND(nextInstruction, regs, currentFlags, memory);
               break;
             case 'andi':
               result = executeANDI(nextInstruction, regs, currentFlags);
               break;
             case 'or':
-              result = executeOR(nextInstruction, regs, currentFlags);
+              result = executeOR(nextInstruction, regs, currentFlags, memory);
               break;
             case 'ori':
               result = executeORI(nextInstruction, regs, currentFlags);
@@ -634,7 +825,7 @@ case 'cpi':
               result = executeNOT(nextInstruction, regs, currentFlags);
               break;
             case 'xor':
-              result = executeXOR(nextInstruction, regs, currentFlags);
+              result = executeXOR(nextInstruction, regs, currentFlags, memory);
               break;
             case 'xori':
               result = executeXORI(nextInstruction, regs, currentFlags);
@@ -659,9 +850,32 @@ case 'cpi':
                 return; // Exit the autoStep function
               }
               break;
-            case 'mvi':
-              result = executeMVI(nextInstruction, regs, currentFlags);
+            case 'mvi': {
+              const mviResult = executeMVI(nextInstruction, regs, cpuFlags, memory);
+
+              if (mviResult.error) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: mviResult.error,
+                    type: 'syntax'
+                  }]
+                }));
+                return; // ⛔ Block execution on error
+              }
+
+              result = {
+                registers: mviResult.registers,
+                flags: mviResult.flags
+              };
+
+              if (mviResult.memory !== memory) {
+                window.dispatchEvent(new CustomEvent('setMemory', { detail: mviResult.memory }));
+                memory = mviResult.memory; // ✅ Update memory after dispatch
+              }
+
               break;
+            }
             default:
               return;
           }
