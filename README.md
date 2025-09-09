@@ -1,69 +1,20 @@
-# React + TypeScript + Vite
+# OpGo!!
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## File formats
 
-Currently, two official plugins are available:
+- .opgo: Default OpGo!! project file. Plain-text instructions in OpGo!! syntax. Lines typically end with `;` as a statement terminator. Saved and opened directly without conversion.
+- .mpc: Legacy 8085 simulator export/import format. When saving with `.mpc`, content is wrapped in the required RTF-like structure for GNUSim8085/Vikas-style tools. When opening `.mpc`, the wrapper is removed to recover instructions.
+- .opg: Custom project extension for branding (alias of `.opgo`). You can rename `.opgo` to `.opg` interchangeably. Both are treated as the same plain-text format.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Export utilities
 
-## Expanding the ESLint configuration
+- Export as .asm: Converts `.opgo` code to standard assembly by line-wise cleanup.
+  - Rule: For each line, remove a single trailing `;` (if present) and trim trailing whitespace.
+  - Output keeps original line order and internal spacing.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Export as .hex: Placeholder machine code export for hardware kits. The current build emits a commented placeholder file until a full assembler is integrated.
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Notes
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- Open dialog accepts `.opgo` and `.mpc` files.
+- Save defaults to `.opgo`. If you explicitly choose `.mpc`, conversion to simulator RTF format is applied.

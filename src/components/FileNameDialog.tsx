@@ -18,7 +18,7 @@ export default function FileNameDialog({
 
   useEffect(() => {
     if (isOpen) {
-      setFileName(currentFileName.replace('.mpc', ''));
+      setFileName(currentFileName.replace('.mpc', '').replace('.opgo', ''));
       setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
@@ -30,7 +30,7 @@ export default function FileNameDialog({
     e.preventDefault();
     const trimmed = fileName.trim();
     if (trimmed) {
-      const finalFileName = trimmed.endsWith('.mpc') ? trimmed : `${trimmed}.mpc`;
+      const finalFileName = trimmed.endsWith('.opgo') || trimmed.endsWith('.opg') || trimmed.endsWith('.mpc') ? trimmed : `${trimmed}.opgo`;
       onSave(finalFileName);
     }
   };
@@ -63,7 +63,7 @@ export default function FileNameDialog({
               placeholder="Enter file name"
               autoComplete="off"
             />
-            <p className="text-xs text-gray-500 mt-1">File will be saved as .mpc</p>
+            <p className="text-xs text-gray-500 mt-1">File will be saved as .opgo</p>
           </div>
           <div className="flex justify-end space-x-3">
             <button

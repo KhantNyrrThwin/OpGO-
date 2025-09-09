@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "opgo:hex": "node scripts/opgo_to_hex.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
