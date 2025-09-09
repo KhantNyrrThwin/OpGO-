@@ -44,7 +44,7 @@ import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, 
 
 export default function ControlBar() {
   const [showDropdown, setShowDropdown] = useState(false);
-  const { fileName, hasUnsavedChanges, openFile, saveFile, saveAsFile } = useFileContext();
+  const { fileName, hasUnsavedChanges, openFile, saveFile, saveAsFile, exportAsAsm, exportAsHex } = useFileContext();
 
   const [cpuFlags, setCpuFlags] = useState<FlagsType>(getInitialFlags());
   const currentLineRef = useRef<number>(0);
@@ -88,6 +88,26 @@ export default function ControlBar() {
       setShowDropdown(false);
     } catch (error) {
       console.error('Error saving file as:', error);
+    }
+  };
+
+  const handleExportAsm = async () => {
+    try {
+      const content = await getCurrentContent();
+      await exportAsAsm(content);
+      setShowDropdown(false);
+    } catch (error) {
+      console.error('Error exporting ASM:', error);
+    }
+  };
+
+  const handleExportHex = async () => {
+    try {
+      const content = await getCurrentContent();
+      await exportAsHex(content);
+      setShowDropdown(false);
+    } catch (error) {
+      console.error('Error exporting HEX:', error);
     }
   };
 
@@ -946,7 +966,7 @@ case 'cpi':
                 className="px-10 py-4 hover:bg-green-700 cursor-pointer"
                 onClick={handleOpen}
               >
-                Open (.mpc)
+                Open (.opgo/.opg/.mpc)
               </li>
               <li 
                 className="px-10 py-4 hover:bg-green-700 cursor-pointer"
@@ -958,7 +978,19 @@ case 'cpi':
                 className="px-8 py-4 hover:bg-green-700 cursor-pointer"
                 onClick={handleSaveAs}
               >
-                Save As (.mpc)
+                Save As (.opgo)
+              </li>
+              <li 
+                className="px-8 py-4 hover:bg-green-700 cursor-pointer"
+                onClick={handleExportAsm}
+              >
+                Export as .asm
+              </li>
+              <li 
+                className="px-8 py-4 hover:bg-green-700 cursor-pointer"
+                onClick={handleExportHex}
+              >
+                Export as .hex
               </li>
             </ul>
           </div>
