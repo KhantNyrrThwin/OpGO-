@@ -177,7 +177,7 @@ export default function InstructionInput() {
         ? opcode + raw.slice(opcode.length) // lowercase only the mnemonic
         : raw.toLowerCase(); // lowercase entire instruction for others
 
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta','inx','dcx', 'lxi', 'ldax', 'stax' ];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta','inx','dcx', 'lxi', 'ldax', 'stax', 'setc', 'addci', 'subbi' ];
   
       
       if (instruction.length > 0) {
@@ -224,6 +224,43 @@ export default function InstructionInput() {
               });
             }
           }
+
+          // === ADDCI === (add carry immediate)
+          if (instructionType === 'addci') {
+            const addciPattern = /^addci\s+[0-9a-f]{1,2}h?$/i;
+            if (!addciPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: ADDCI requires a valid 8-bit hexadecimal immediate value (e.g. ADDCI 3AH)`,
+                type: 'syntax'
+              });
+            }
+          }
+
+          // === SUBBI === (subtract borrow immediate)
+          if (instructionType === 'subbi') {
+            const subbiPattern = /^subbi\s+[0-9a-f]{1,2}h?$/i;
+            if (!subbiPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: SUBBI requires a valid 8-bit hexadecimal immediate value (e.g. SUBBI 2FH)`,
+                type: 'syntax'
+              });
+            }
+          }
+
+          // === SETC === (set carry)
+          if (instructionType === 'setc') {
+            const setcPattern = /^setc$/i;
+            if (!setcPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: SETC does not take any arguments`,
+                type: 'syntax'
+              });
+            }
+          }
+
                     
           // Add LDA validation (after the ADD validation):
           // === LDA === (load from memory address: LDA 2000H)

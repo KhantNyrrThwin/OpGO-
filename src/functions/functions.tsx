@@ -38,3 +38,6 @@ export * from './stax';
 export * from './hlt';
 export * from './dcx';
 export * from './inx';
+export * from './addci';
+export * from './subbi';
+export * from './setc';
