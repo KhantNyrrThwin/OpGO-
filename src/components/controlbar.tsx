@@ -40,6 +40,9 @@ import { executeLDAX } from '../functions/ldax';
 import { executeSTAX } from '../functions/stax';
 import { executeINX } from '../functions/inx';
 import { executeDCX } from '../functions/dcx';
+import { executeADDCI } from '../functions/addci';
+import { executeSUBBI } from '../functions/subbi';
+import { executeSETC } from '../functions/setc';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 
 export default function ControlBar() {
@@ -423,11 +426,17 @@ case 'cpi':
           case 'addi':
             result = executeADDI(nextInstruction, regs, cpuFlags);
             break;
+          case 'addci':
+            result = executeADDCI(nextInstruction, regs, cpuFlags);
+            break;
           case 'sub':
             result = executeSUB(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'subb':
             result = executeSUBB(nextInstruction, regs, cpuFlags, memory);
+            break;
+          case 'subbi':
+            result = executeSUBBI(nextInstruction, regs, cpuFlags);
             break;
           case 'divi':
             result = executeDIVI(nextInstruction, regs, cpuFlags);
@@ -452,6 +461,9 @@ case 'cpi':
             break;
           case 'xori':
             result = executeXORI(nextInstruction, regs, cpuFlags);
+            break;
+          case 'setc':
+            result = executeSETC(nextInstruction, regs, cpuFlags);
             break;
           case 'hlt':
             result = executeHLT(nextInstruction, regs, cpuFlags);
@@ -820,11 +832,17 @@ case 'cpi':
             case 'addi':
               result = executeADDI(nextInstruction, regs, currentFlags);
               break;
+            case 'addci':
+              result = executeADDCI(nextInstruction, regs, currentFlags);
+              break;
             case 'sub':
               result = executeSUB(nextInstruction, regs, currentFlags, memory);
               break;
             case 'subb':
               result = executeSUBB(nextInstruction, regs, currentFlags, memory);
+              break;
+            case 'subbi':
+              result = executeSUBBI(nextInstruction, regs, currentFlags);
               break;
             case 'divi':
               result = executeDIVI(nextInstruction, regs, currentFlags);
@@ -849,6 +867,9 @@ case 'cpi':
               break;
             case 'xori':
               result = executeXORI(nextInstruction, regs, currentFlags);
+              break;
+            case 'setc':
+              result = executeSETC(nextInstruction, regs, currentFlags);
               break;
             case 'hlt':
               result = executeHLT(nextInstruction, regs, currentFlags);
