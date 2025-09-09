@@ -38,6 +38,11 @@ const instructions: Instruction[] = [
   { name: "JC adr", description: "Jump if carry generated (C = 1)" },
   { name: "JP adr", description: "Jump if sign bit is 0 (positive)" },
   { name: "JM adr", description: "Jump if sign bit is 1 (negative)" },
+  { name: "LXI rp, addr", description: "Load 16-bit immediate address into register pair (B-C, D-E, H-L)" },
+  { name: "LDAX rp", description: "Load accumulator from memory pointed to by register pair (B-C, D-E)" },
+  { name: "STAX rp", description: "Store accumulator into memory pointed to by register pair (B-C, D-E)" },
+  { name: "DCX rp", description: "Decrement register pair by 1 (B-C, D-E, H-L)" },
+  { name: "INX rp", description: "Increment register pair by 1 (B-C, D-E, H-L)" },
   { name: "HLT", description: "Stop program execution" },
 ];
 
