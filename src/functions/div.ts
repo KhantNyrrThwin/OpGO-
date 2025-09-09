@@ -1,50 +1,60 @@
-/**
- * DIV (Divide Register) Instruction Implementation for 8085 Microprocessor
- * 
- * DIV reg - Divide accumulator (A) by value in register (reg)
- * Example: DIV B (divides A by B)
- * 
- * This instruction affects the processor flags (Z, S, CY, AC, P) based on the result.
- */
-
 import { type Registers, type Flags, getRegisterByte, computeFlagsFromByte } from './types';
 
-// DIV reg - Divide accumulator by register
-export function executeDIV(instruction: string, registers: Registers, flags: Flags): { registers: Registers; flags: Flags } {
-    const trimmed = instruction.trim();
-    const match = /^div\s+([abcdehl])$/i.exec(trimmed);
-    if (!match) {
-        return { registers, flags };
-    }
+// Helper to compute HL address
+const getHLAddress = (registers: Registers): number => {
+  const h = parseInt(registers.H[0] + registers.H[1], 16);
+  const l = parseInt(registers.L[0] + registers.L[1], 16);
+  return (h << 8) | l;
+};
 
-    const srcReg = match[1].toUpperCase() as keyof Registers;
-    const srcValue = getRegisterByte(registers, srcReg);
-    const accValue = getRegisterByte(registers, 'A');
+/**
+ * DIV reg - Divide accumulator (A) by value in register or memory
+ * Example: DIV B (A = A / B)
+ *          DIV M (A = A / memory[HL])
+ * 
+ * Affects flags: Z, S, CY, AC, P
+ */
+export function executeDIV(
+  instruction: string,
+  registers: Registers,
+  flags: Flags,
+  memory: number[]
+): { registers: Registers; flags: Flags } {
+  const trimmed = instruction.trim();
+  const match = /^div\s+([abcdehlm])$/i.exec(trimmed);
+  if (!match) {
+    return { registers, flags };
+  }
 
-    // Prevent division by zero
-    if (srcValue === 0) {
-        // Set zero flag, optionally set carry or other error flags
-        const newFlags = { ...flags, zero: 1, carry: 1 };
-        return { registers, flags: newFlags };
-    }
+  const operand = match[1].toUpperCase();
 
-    // Perform division (A / reg)
-    let result = Math.floor(accValue / srcValue);
-    let carry = accValue % srcValue !== 0 ? 1 : 0; // Set carry if remainder exists
+  const accValue = getRegisterByte(registers, 'A');
+  let divisor: number;
 
-    result = result & 0xFF; // Ensure 8-bit result
+  if (operand === 'M') {
+    const hlAddress = getHLAddress(registers);
+    divisor = memory[hlAddress] ?? 0x00;
+  } else {
+    divisor = getRegisterByte(registers, operand as keyof Registers);
+  }
 
-    // Convert result to hex string, pad to 2 digits
-    const resultHex = result.toString(16).toUpperCase().padStart(2, '0');
-    const upper = resultHex[0];
-    const lower = resultHex[1];
+  if (divisor === 0) {
+    const errorFlags = { ...flags, zero: 1, carry: 1 };
+    return { registers, flags: errorFlags };
+  }
 
-    const newRegisters: Registers = { ...registers };
-    newRegisters.A = [upper, lower];
+  const quotient = Math.floor(accValue / divisor);
+  const remainder = accValue % divisor;
+  const carry = remainder !== 0 ? 1 : 0;
 
-    // Compute flags from result
-    const newFlags = computeFlagsFromByte(upper, lower);
-    newFlags.carry = carry;
+  const result = quotient & 0xFF;
+  const resultHex = result.toString(16).toUpperCase().padStart(2, '0');
+  const upper = resultHex[0];
+  const lower = resultHex[1];
 
-    return { registers: newRegisters, flags: newFlags };
+  const newRegisters: Registers = { ...registers, A: [upper, lower] };
+  const newFlags = computeFlagsFromByte(upper, lower);
+  newFlags.carry = carry;
+
+  return { registers: newRegisters, flags: newFlags };
 }
