@@ -1,43 +1,54 @@
-/**
- * MUL (Multiply Register) Instruction Implementation for 8085 Microprocessor
- * 
- * MUL reg - Multiply accumulator (A) by value in register (reg)
- * Example: MUL B (multiplies A by B)
- * 
- * This instruction affects the processor flags (Z, S, CY, AC, P) based on the result.
- */
-
 import { type Registers, type Flags, getRegisterByte, computeFlagsFromByte } from './types';
 
-// MUL reg - Multiply accumulator by register
-export function executeMUL(instruction: string, registers: Registers, flags: Flags): { registers: Registers; flags: Flags } {
-    const trimmed = instruction.trim();
-    const match = /^mul\s+([abcdehl])$/i.exec(trimmed);
-    if (!match) {
-        return { registers, flags };
-    }
+// Helper to compute HL address
+const getHLAddress = (registers: Registers): number => {
+  const h = parseInt(registers.H[0] + registers.H[1], 16);
+  const l = parseInt(registers.L[0] + registers.L[1], 16);
+  return (h << 8) | l;
+};
 
-    const srcReg = match[1].toUpperCase() as keyof Registers;
-    const srcValue = getRegisterByte(registers, srcReg);
-    const accValue = getRegisterByte(registers, 'A');
+/**
+ * MUL reg - Multiply accumulator (A) by value in register or memory
+ * Example: MUL B (A = A * B)
+ *          MUL M (A = A * memory[HL])
+ * 
+ * Affects flags: Z, S, CY, AC, P
+ */
+export function executeMUL(
+  instruction: string,
+  registers: Registers,
+  flags: Flags,
+  memory: number[]
+): { registers: Registers; flags: Flags } {
+  const trimmed = instruction.trim();
+  const match = /^mul\s+([abcdehlm])$/i.exec(trimmed);
+  if (!match) {
+    return { registers, flags };
+  }
 
-    // Perform multiplication (A * reg)
-    let result = accValue * srcValue;
-    let carry = result > 0xFF ? 1 : 0;
-    result = result & 0xFF; // Wrap around for 8-bit
+  const operand = match[1].toUpperCase();
 
-    // Convert result to hex string, pad to 2 digits
-    const resultHex = result.toString(16).toUpperCase().padStart(2, '0');
-    const upper = resultHex[0];
-    const lower = resultHex[1];
+  const accValue = getRegisterByte(registers, 'A');
+  let operandValue: number;
 
-    const newRegisters: Registers = { ...registers };
-    newRegisters.A = [upper, lower];
+  if (operand === 'M') {
+    const hlAddress = getHLAddress(registers);
+    operandValue = memory[hlAddress] ?? 0x00;
+  } else {
+    operandValue = getRegisterByte(registers, operand as keyof Registers);
+  }
 
-    // Compute flags from result
-    const newFlags = computeFlagsFromByte(upper, lower);
-    // Set carry flag if overflow
-    newFlags.carry = carry;
+  let result = accValue * operandValue;
+  const carry = result > 0xFF ? 1 : 0;
+  result = result & 0xFF;
 
-    return { registers: newRegisters, flags: newFlags };
+  const resultHex = result.toString(16).toUpperCase().padStart(2, '0');
+  const upper = resultHex[0];
+  const lower = resultHex[1];
+
+  const newRegisters: Registers = { ...registers, A: [upper, lower] };
+  const newFlags = computeFlagsFromByte(upper, lower);
+  newFlags.carry = carry;
+
+  return { registers: newRegisters, flags: newFlags };
 }

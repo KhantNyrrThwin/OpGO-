@@ -773,11 +773,11 @@ if (instructionType === 'cmp') {
 
         if (instructionType === 'mul') {
           // MUL reg (reg must be one of A, B, C, D, E, H, L)
-          const mulPattern = /^mul\s+[abcdehl]$/i;
+          const mulPattern = /^mul\s+[abcdehlm]$/i;
           if (!mulPattern.test(instruction)) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: MUL instruction must be in the form MUL reg (e.g., MUL B) where reg is A, B, C, D, E, H, or L.`,
+              message: `Line ${index + 1}: MUL instruction must be in the form MUL reg (e.g., MUL B) where reg is A, B, C, D, E, H, L or M.`,
               type: 'syntax'
             });
           }
@@ -785,11 +785,11 @@ if (instructionType === 'cmp') {
 
         if (instructionType === 'div') {
           // DIV reg (reg must be one of A, B, C, D, E, H, L)
-          const divPattern = /^div\s+[abcdehl]$/i;
+          const divPattern = /^div\s+[abcdehlm]$/i;
           if (!divPattern.test(instruction)) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: DIV instruction must be in the form DIV reg (e.g., DIV B) where reg is A, B, C, D, E, H, or L.`,
+              message: `Line ${index + 1}: DIV instruction must be in the form DIV reg (e.g., DIV B) where reg is A, B, C, D, E, H, L or M.`,
               type: 'syntax'
             });
           }

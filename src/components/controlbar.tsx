@@ -390,10 +390,10 @@ case 'cpi':
               result = executeMULI(nextInstruction, regs, cpuFlags);
               break;
           case 'mul':
-          result = executeMUL(nextInstruction, regs, cpuFlags);
+          result = executeMUL(nextInstruction, regs, cpuFlags, memory);
           break;  
           case 'div':
-            result = executeDIV(nextInstruction, regs, cpuFlags);
+            result = executeDIV(nextInstruction, regs, cpuFlags, memory);
             break;
           //act
           case 'addc':
@@ -789,10 +789,10 @@ case 'cpi':
               result = executeMULI(nextInstruction, regs, currentFlags);
               break;
             case 'mul':
-              result = executeMUL(nextInstruction, regs, currentFlags);
+              result = executeMUL(nextInstruction, regs, currentFlags, memory);
             break;
             case 'div':
-              result = executeDIV(nextInstruction, regs, currentFlags);
+              result = executeDIV(nextInstruction, regs, currentFlags, memory);
               break;
             case 'addc':
               result = executeADDC(nextInstruction, regs, currentFlags, memory);
