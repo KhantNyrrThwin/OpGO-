@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import UserData from "../assets/UserData.png"
+import { useTheme } from "../contexts/ThemeContext";
 
 // Define a type for a single row of memory data.
 type MemoryRow = {
@@ -9,6 +10,8 @@ type MemoryRow = {
 
 // Main component that serves as the user grid.
 const App = () => {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   // Use a type annotation to tell TypeScript what kind of data `memory` will hold.
   const [memory, setMemory] = useState<MemoryRow[]>([]);
   
@@ -103,17 +106,17 @@ const App = () => {
   };
 
   return (
-    <div className="bg-black p-6 rounded-2xl shadow-lg w-full max-w-md mx-auto my-2 font-sans text-white">
+    <div className={`${isDark ? 'bg-black text-white' : 'bg-neutral-100 text-neutral-900'} p-6 rounded-2xl shadow-lg w-full max-w-md mx-auto my-2 font-sans`}>
       <div className="flex flex-col items-center">
         <img src={UserData} className="w-35.5 h-[15%] mt-0 " />
-        <div className="w-full text-center py-2 text-gray-500 border-b border-gray-700 mb-4"></div>
+        <div className={`w-full text-center py-2 mb-4 ${isDark ? 'text-gray-500 border-b border-gray-700' : 'text-neutral-500 border-b border-neutral-300'}`}></div>
 
 
          {/* Make table scrollable */}
         <div className="w-full" style={{ maxHeight: '480px', overflowY: 'auto' }}>
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-700 text-gray-400">
+              <tr className={`${isDark ? 'border-b border-gray-700 text-gray-400' : 'border-b border-neutral-300 text-neutral-600'}`}>
                 <th className="text-left py-2 px-4">Address</th>
                 <th className="text-left py-2 px-4">Data</th>
               </tr>
@@ -123,7 +126,7 @@ const App = () => {
               memory.map((row, index) => (
                 <tr
                   key={index}
-                  className="border-b border-gray-800 cursor-pointer hover:bg-gray-900"
+                  className={`${isDark ? 'border-b border-gray-800 hover:bg-gray-900' : 'border-b border-neutral-200 hover:bg-neutral-200'} cursor-pointer`}
                 >
                   <td
                     className="py-2 px-4"
@@ -138,11 +141,11 @@ const App = () => {
                         value={row.address}
                         onChange={(e) => handleInputChange(e, index, 'address')}
                         onBlur={handleInputBlur}
-                        className="w-full bg-gray-700 text-white border border-gray-600 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className={`w-full rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${isDark ? 'bg-gray-700 text-white border border-gray-600' : 'bg-white text-neutral-900 border border-neutral-300'}`}
                         autoFocus
                       />
                     ) : (
-                      <span className="text-gray-100">{row.address}</span>
+                      <span className={`${isDark ? 'text-gray-100' : 'text-neutral-900'}`}>{row.address}</span>
                     )}
                   </td>
                   <td
@@ -158,21 +161,21 @@ const App = () => {
                         value={row.data}
                         onChange={(e) => handleInputChange(e, index, 'data')}
                         onBlur={handleInputBlur}
-                        className="w-full bg-gray-700 text-white border border-gray-600 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className={`w-full rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${isDark ? 'bg-gray-700 text-white border border-gray-600' : 'bg-white text-neutral-900 border border-neutral-300'}`}
                         autoFocus
                       />
                     ) : (
-                      <span className="text-gray-100">{row.data}</span>
+                      <span className={`${isDark ? 'text-gray-100' : 'text-neutral-900'}`}>{row.data}</span>
                     )}
                   </td>
                 </tr>
               ))
             ) : (
               <tr 
-                className="cursor-pointer hover:bg-gray-900"
+                className={`cursor-pointer ${isDark ? 'hover:bg-gray-900' : 'hover:bg-neutral-200'}`}
                 onClick={handleAddRow}
               >
-                <td colSpan={2} className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-700 rounded-md">
+                <td colSpan={2} className={`text-center py-8 border-2 border-dashed rounded-md ${isDark ? 'text-gray-500 border-gray-700' : 'text-neutral-500 border-neutral-300'}`}>
                   Click here to add the first memory entry.
                 </td>
               </tr>
@@ -182,7 +185,7 @@ const App = () => {
         {memory.length > 0 && (
           <button
             onClick={handleAddRow}
-            className="mt-6 px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg shadow-md hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className={`mt-6 px-6 py-2 font-medium rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${isDark ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-indigo-100 text-indigo-900 hover:bg-indigo-200'}`}
           >
             Add New Row
           </button>
