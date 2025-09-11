@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import RegTitle from "../assets/Register Title.png"
 import type { Registers as RegistersType } from "../functions/types";
+import { useTheme } from "../contexts/ThemeContext";
 
 interface RegisterData {
   A: [string, string];
@@ -14,6 +15,8 @@ interface RegisterData {
 }
 
 export default function Registers() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [registers, setRegisters] = useState<RegisterData>({
     A: ["0", "0"],
     B: ["0", "0"],
@@ -107,9 +110,9 @@ export default function Registers() {
   }) => (
     <div 
       ref={(el) => { registerRefs.current[letter] = el; }}
-      className={`${isFullWidth ? 'w-full' : 'w-1/2'} h-20 flex items-center justify-center px-4 ${color} border-2 border-gray-300 transition-colors duration-200`}
+      className={`${isFullWidth ? 'w-full' : 'w-1/2'} h-20 flex items-center justify-center px-4 ${color} border-2 ${isDark ? 'border-gray-300' : 'border-gray-200'} transition-colors duration-200`}
     >
-      <span className="text-white text-4xl font-bold mr-6">{letter}</span>
+      <span className={`${isDark ? 'text-white' : 'text-gray-900'} text-4xl font-bold mr-6`}>{letter}</span>
       <div className="flex gap-3">
         <input
           type="text"
@@ -118,7 +121,7 @@ export default function Registers() {
             const val = e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 1);
             updateRegister(letter as keyof RegisterData, 0, val);
           }}
-          className="w-10 h-10 text-center text-white bg-transparent border-2 border-white rounded text-xl font-mono transition-colors duration-200 hover:bg-white/10"
+          className={`w-10 h-10 text-center ${isDark ? 'text-white border-white hover:bg-white/10' : 'text-gray-900 border-gray-400 hover:bg-gray-100'} bg-transparent border-2 rounded text-xl font-mono transition-colors duration-200`}
           maxLength={1}
         />
         <input
@@ -128,7 +131,7 @@ export default function Registers() {
             const val = e.target.value.toUpperCase().replace(/[^0-9A-F]/g, '').slice(0, 1);
             updateRegister(letter as keyof RegisterData, 1, val);
           }}
-          className="w-10 h-10 text-center text-white bg-transparent border-2 border-white rounded text-xl font-mono transition-colors duration-200 hover:bg-white/10"
+          className={`w-10 h-10 text-center ${isDark ? 'text-white border-white hover:bg-white/10' : 'text-gray-900 border-gray-400 hover:bg-gray-100'} bg-transparent border-2 rounded text-xl font-mono transition-colors duration-200`}
           maxLength={1}
         />
       </div>
@@ -136,14 +139,18 @@ export default function Registers() {
   );
 
   return (
-    <div className="bg-[#2c2c2c] h-full border-3 border-solid border-[#3F3F46] flex flex-col items-center justify-center p-3 pb-2 pt-0">
-      <img src={RegTitle} className="w-45.5 h-[10%]" />
+    <div className={`${isDark ? 'bg-[#2c2c2c] border-[#3F3F46]' : 'bg-white border-gray-200'} h-full border-3 border-solid flex flex-col items-center justify-center p-3 pb-2 pt-0`}>
+      <img
+        src={isDark ? RegTitle : "/assets/Register Title Light.png"}
+        onError={(e) => { (e.currentTarget as HTMLImageElement).src = RegTitle; }}
+        className="w-45.5 h-[10%]"
+      />
 
       <div className="w-full max-w-md space-y-2">
         <RegisterBlock 
           letter="A" 
           values={registers.A} 
-          color="bg-blue-800" 
+          color={`${isDark ? 'bg-blue-800' : 'bg-blue-100'}`} 
           isFullWidth={true}
         />
         
@@ -151,12 +158,12 @@ export default function Registers() {
           <RegisterBlock 
             letter="B" 
             values={registers.B} 
-            color="bg-purple-400" 
+            color={`${isDark ? 'bg-purple-400' : 'bg-purple-100'}`} 
           />
           <RegisterBlock 
             letter="C" 
             values={registers.C} 
-            color="bg-cyan-400" 
+            color={`${isDark ? 'bg-cyan-400' : 'bg-cyan-100'}`} 
           />
         </div>
         
@@ -164,12 +171,12 @@ export default function Registers() {
           <RegisterBlock 
             letter="D" 
             values={registers.D} 
-            color="bg-orange-500" 
+            color={`${isDark ? 'bg-orange-500' : 'bg-orange-100'}`} 
           />
           <RegisterBlock 
             letter="E" 
             values={registers.E} 
-            color="bg-pink-500" 
+            color={`${isDark ? 'bg-pink-500' : 'bg-pink-100'}`} 
           />
         </div>
         
@@ -177,12 +184,12 @@ export default function Registers() {
           <RegisterBlock 
             letter="H" 
             values={registers.H} 
-            color="bg-blue-500" 
+            color={`${isDark ? 'bg-blue-500' : 'bg-blue-100'}`} 
           />
           <RegisterBlock 
             letter="L" 
             values={registers.L} 
-            color="bg-green-500" 
+            color={`${isDark ? 'bg-green-500' : 'bg-green-100'}`} 
           />
         </div>
       </div>
