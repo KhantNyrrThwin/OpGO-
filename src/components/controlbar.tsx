@@ -44,8 +44,11 @@ import { executeADDCI } from '../functions/addci';
 import { executeSUBBI } from '../functions/subbi';
 import { executeSETC } from '../functions/setc';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function ControlBar() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [showDropdown, setShowDropdown] = useState(false);
   const { fileName, hasUnsavedChanges, openFile, saveFile, saveAsFile, exportAsAsm, exportAsHex } = useFileContext();
 
@@ -967,7 +970,7 @@ case 'cpi':
 
   
   return (
-    <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative z-25">
+    <div className={`${isDark ? 'bg-[#d3d3d3] text-white' : 'bg-gray-100 text-gray-900'} flex items-center justify-between px-4 py-2 text-sm font-medium relative z-25`}>
       {/* File Menu */}
       <div className="relative">
         <button
@@ -981,28 +984,28 @@ case 'cpi':
         </button>
 
         {showDropdown && (
-          <div className="absolute top-8 left-0 bg-[#3a3a3a] border border-gray-600 rounded shadow-lg z-25">
+          <div className={`${isDark ? 'bg-[#3a3a3a] border border-gray-600' : 'bg-white border border-gray-200'} absolute top-8 left-0 rounded shadow-lg z-25`}>
             <ul className="flex flex-col text-left">
               <li 
-                className="px-10 py-4 hover:bg-green-700 cursor-pointer"
+                className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-10 py-4 cursor-pointer`}
                 onClick={handleOpen}
               >
                 Open (.opgo/.opg/.mpc)
               </li>
               <li 
-                className="px-10 py-4 hover:bg-green-700 cursor-pointer"
+                className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-10 py-4 cursor-pointer`}
                 onClick={handleSave}
               >
                 Save
               </li>
               <li 
-                className="px-8 py-4 hover:bg-green-700 cursor-pointer"
+                className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-8 py-4 cursor-pointer`}
                 onClick={handleSaveAs}
               >
                 Save As (.opgo)
               </li>
               <li 
-                className="px-8 py-4 hover:bg-green-700 cursor-pointer"
+                className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-8 py-4 cursor-pointer`}
                 onClick={handleExportAsm}
               >
                 Export as .asm
@@ -1016,17 +1019,17 @@ case 'cpi':
       {/* Action Buttons Styled Like Image */}
       <div className="flex items-center gap-4">
         {/* Stop Button */}
-        <button className="bg-red-600 hover:bg-red-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleStop}>
+        <button className={`${isDark ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} rounded-full p-2 flex items-center justify-center cursor-pointer`} onClick={handleStop}>
           <div className="bg-white w-3.5 h-3.5" />
         </button>
 
         {/* Step Into Button */}
-        <button className="bg-[#add8e6] hover:bg-[#9ccbe0] text-black border border-black px-4 py-1 rounded cursor-pointer" onClick={stepInto}>
+        <button className={`${isDark ? 'bg-[#add8e6] hover:bg-[#9ccbe0] text-black border border-black' : 'bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-300'} px-4 py-1 rounded cursor-pointer`} onClick={stepInto}>
           Step Into
         </button>
 
         {/* Run Button */}
-        <button className="bg-blue-600 hover:bg-blue-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleRun}>
+        <button className={`${isDark ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} rounded-full p-2 flex items-center justify-center cursor-pointer`} onClick={handleRun}>
           <PlayIcon className="h-4.5 w-4.5 text-white" />
         </button>
 
