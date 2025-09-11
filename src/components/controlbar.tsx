@@ -415,9 +415,25 @@ case 'cpi':
           case 'mul':
           result = executeMUL(nextInstruction, regs, cpuFlags, memory);
           break;  
-          case 'div':
-            result = executeDIV(nextInstruction, regs, cpuFlags, memory);
+          case 'div': {
+            const divResult = executeDIV(nextInstruction, regs, cpuFlags, memory);
+            if (divResult.halt) {
+              window.dispatchEvent(new CustomEvent('externalErrors', {
+                detail: [{
+                  line: currentLineRef.current,
+                  message: divResult.error ?? 'DIVIDE BY ZERO',
+                  type: 'syntax'
+                }]
+              }));
+              currentLineRef.current = rawLines.length;
+              setCpuFlags(divResult.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: divResult.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: divResult.flags }));
+              return;
+            }
+            result = divResult;
             break;
+          }
           //act
           case 'addc':
             result = executeADDC(nextInstruction, regs, cpuFlags, memory);
@@ -438,9 +454,25 @@ case 'cpi':
           case 'subbi':
             result = executeSUBBI(nextInstruction, regs, cpuFlags);
             break;
-          case 'divi':
-            result = executeDIVI(nextInstruction, regs, cpuFlags);
+          case 'divi': {
+            const diviResult = executeDIVI(nextInstruction, regs, cpuFlags);
+            if (diviResult.halt) {
+              window.dispatchEvent(new CustomEvent('externalErrors', {
+                detail: [{
+                  line: currentLineRef.current,
+                  message: diviResult.error ?? 'DIVIDE BY ZERO',
+                  type: 'syntax'
+                }]
+              }));
+              currentLineRef.current = rawLines.length;
+              setCpuFlags(diviResult.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: diviResult.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: diviResult.flags }));
+              return;
+            }
+            result = diviResult;
             break;
+          }
           case 'and':
             result = executeAND(nextInstruction, regs, cpuFlags, memory);
             break;
@@ -823,9 +855,30 @@ case 'cpi':
             case 'mul':
               result = executeMUL(nextInstruction, regs, currentFlags, memory);
             break;
-            case 'div':
-              result = executeDIV(nextInstruction, regs, currentFlags, memory);
+            case 'div': {
+              const divResult = executeDIV(nextInstruction, regs, currentFlags, memory);
+              if (divResult.halt) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: divResult.error ?? 'DIVIDE BY ZERO',
+                    type: 'syntax'
+                  }]
+                }));
+                isRunningRef.current = false;
+                currentLineRef.current = rawLines.length;
+                currentFlags = divResult.flags;
+                setCpuFlags(divResult.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: divResult.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: divResult.flags }));
+                window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+                currentLineRef.current = 0;
+                isFirstStepRef.current = true;
+                return;
+              }
+              result = divResult;
               break;
+            }
             case 'addc':
               result = executeADDC(nextInstruction, regs, currentFlags, memory);
               break;
@@ -844,9 +897,30 @@ case 'cpi':
             case 'subbi':
               result = executeSUBBI(nextInstruction, regs, currentFlags);
               break;
-            case 'divi':
-              result = executeDIVI(nextInstruction, regs, currentFlags);
+            case 'divi': {
+              const diviResult = executeDIVI(nextInstruction, regs, currentFlags);
+              if (diviResult.halt) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: diviResult.error ?? 'DIVIDE BY ZERO',
+                    type: 'syntax'
+                  }]
+                }));
+                isRunningRef.current = false;
+                currentLineRef.current = rawLines.length;
+                currentFlags = diviResult.flags;
+                setCpuFlags(diviResult.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: diviResult.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: diviResult.flags }));
+                window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+                currentLineRef.current = 0;
+                isFirstStepRef.current = true;
+                return;
+              }
+              result = diviResult;
               break;
+            }
             case 'and':
               result = executeAND(nextInstruction, regs, currentFlags, memory);
               break;

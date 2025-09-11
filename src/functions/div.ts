@@ -19,7 +19,7 @@ export function executeDIV(
   registers: Registers,
   flags: Flags,
   memory: number[]
-): { registers: Registers; flags: Flags } {
+): { registers: Registers; flags: Flags; halt?: boolean; error?: string } {
   const trimmed = instruction.trim();
   const match = /^div\s+([abcdehlm])$/i.exec(trimmed);
   if (!match) {
@@ -40,7 +40,7 @@ export function executeDIV(
 
   if (divisor === 0) {
     const errorFlags = { ...flags, zero: 1, carry: 1 };
-    return { registers, flags: errorFlags };
+    return { registers, flags: errorFlags, halt: true, error: 'DIVIDE BY ZERO' };
   }
 
   const quotient = Math.floor(accValue / divisor);
