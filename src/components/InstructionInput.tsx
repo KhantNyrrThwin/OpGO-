@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 import { AlertCircle, X, ChevronDown, ChevronUp, AlertTriangle, Info, Lightbulb } from 'lucide-react';
 import { useFileContext } from '../contexts/FileContext';
 import { parseLabels } from '../functions/parseLabels';
@@ -11,6 +12,8 @@ interface ValidationError {
 }
 
 export default function InstructionInput() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [instructions, setInstructions] = useState("");
   const [highlightedLine, setHighlightedLine] = useState<number>(-1);
   const [errors, setErrors] = useState<ValidationError[]>([]);
@@ -39,11 +42,20 @@ export default function InstructionInput() {
   };
 
   const getErrorColor = (type: string) => {
-    switch (type) {
-      case 'semicolon': return 'border-orange-400 bg-orange-900/20';
-      case 'syntax': return 'border-red-400 bg-red-900/20';
-      case 'invalid_instruction': return 'border-red-500 bg-red-900/30';
-      default: return 'border-blue-400 bg-blue-900/20';
+    if (isDark) {
+      switch (type) {
+        case 'semicolon': return 'border-orange-400 bg-orange-900/20';
+        case 'syntax': return 'border-red-400 bg-red-900/20';
+        case 'invalid_instruction': return 'border-red-500 bg-red-900/30';
+        default: return 'border-blue-400 bg-blue-900/20';
+      }
+    } else {
+      switch (type) {
+        case 'semicolon': return 'border-orange-400 bg-orange-100';
+        case 'syntax': return 'border-red-400 bg-red-100';
+        case 'invalid_instruction': return 'border-red-500 bg-red-100';
+        default: return 'border-blue-400 bg-blue-100';
+      }
     }
   };
 
@@ -177,7 +189,7 @@ export default function InstructionInput() {
         ? opcode + raw.slice(opcode.length) // lowercase only the mnemonic
         : raw.toLowerCase(); // lowercase entire instruction for others
 
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta','inx','dcx', 'lxi', 'ldax', 'stax' ];
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta','inx','dcx', 'lxi', 'ldax', 'stax', 'setc', 'addci', 'subbi' ];
   
       
       if (instruction.length > 0) {
@@ -224,6 +236,43 @@ export default function InstructionInput() {
               });
             }
           }
+
+          // === ADDCI === (add carry immediate)
+          if (instructionType === 'addci') {
+            const addciPattern = /^addci\s+[0-9a-f]{1,2}h?$/i;
+            if (!addciPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: ADDCI requires a valid 8-bit hexadecimal immediate value (e.g. ADDCI 3AH)`,
+                type: 'syntax'
+              });
+            }
+          }
+
+          // === SUBBI === (subtract borrow immediate)
+          if (instructionType === 'subbi') {
+            const subbiPattern = /^subbi\s+[0-9a-f]{1,2}h?$/i;
+            if (!subbiPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: SUBBI requires a valid 8-bit hexadecimal immediate value (e.g. SUBBI 2FH)`,
+                type: 'syntax'
+              });
+            }
+          }
+
+          // === SETC === (set carry)
+          if (instructionType === 'setc') {
+            const setcPattern = /^setc$/i;
+            if (!setcPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: SETC does not take any arguments`,
+                type: 'syntax'
+              });
+            }
+          }
+
                     
           // Add LDA validation (after the ADD validation):
           // === LDA === (load from memory address: LDA 2000H)
@@ -858,6 +907,7 @@ if (instructionType === 'cmp') {
   // Generate HTML with pale-green comments. Full-line comments start with // or ;
   // Inline comments use // only to avoid conflict with required semicolon terminator.
   const getCommentHighlightedHtml = (text: string): string => {
+    const commentClass = isDark ? 'text-green-300' : 'text-emerald-700';
     const escapeHtml = (str: string) =>
       str
         .replace(/&/g, '&amp;')
@@ -876,7 +926,7 @@ if (instructionType === 'cmp') {
       const leadingSpaces = line.slice(0, leadingSpacesCount).replace(/ /g, '&nbsp;');
 
       if (trimmed.startsWith('//') || trimmed.startsWith('/')) {
-        const commentHtml = `<span class=\"text-green-300\">${escapeHtml(trimmed)}</span>`;
+        const commentHtml = `<span class=\"${commentClass}\">${escapeHtml(trimmed)}</span>`;
         htmlLines.push(`${leadingSpaces}${commentHtml}`);
         continue;
       }
@@ -895,7 +945,7 @@ if (instructionType === 'cmp') {
               const codePart = line.slice(0, splitIdx);
               const commentPart = line.slice(splitIdx);
         const codeHtml = escapeHtml(codePart).replace(/ /g, '&nbsp;');
-        const commentHtml = `<span class=\"text-green-300\">${escapeHtml(commentPart)}</span>`;
+        const commentHtml = `<span class=\"${commentClass}\">${escapeHtml(commentPart)}</span>`;
         htmlLines.push(codeHtml + commentHtml);
       } else {
         // No comment in this line
@@ -1035,13 +1085,13 @@ if (instructionType === 'cmp') {
   };
 
   return (
-    <div className="h-full bg-[#121212] text-white font-mono text-lg overflow-y-auto flex flex-col">
+    <div className={`h-full ${isDark ? 'bg-[#121212] text-white' : 'bg-neutral-100 text-neutral-900'} font-mono text-lg overflow-y-auto flex flex-col`}>
       {/* Enhanced Error Display */}
       {errors.length > 0 && (
-        <div className="border-b border-gray-700">
+        <div className={`${isDark ? 'border-b border-gray-700' : 'border-b border-neutral-300'}`}>
           {/* Error Panel Header */}
           <div 
-            className="flex items-center justify-between p-3 bg-gray-800/50 cursor-pointer hover:bg-gray-800/70 transition-colors"
+            className={`flex items-center justify-between p-3 cursor-pointer transition-colors ${isDark ? 'bg-gray-800/50 hover:bg-gray-800/70' : 'bg-neutral-200 hover:bg-neutral-300'}`}
             onClick={() => setIsErrorPanelExpanded(!isErrorPanelExpanded)}
           >
             <div className="flex items-center gap-3">
@@ -1051,7 +1101,7 @@ if (instructionType === 'cmp') {
                   {errors.length} Error{errors.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="flex items-center gap-1 text-sm text-gray-400">
+              <div className={`flex items-center gap-1 text-sm ${isDark ? 'text-gray-400' : 'text-neutral-600'}`}>
                 {sortedErrors.filter(e => e.type === 'semicolon').length > 0 && (
                   <span className="px-2 py-1 bg-orange-900/30 text-orange-300 rounded text-xs">
                     {sortedErrors.filter(e => e.type === 'semicolon').length} Missing Semicolon
@@ -1080,7 +1130,7 @@ if (instructionType === 'cmp') {
 
           {/* Expanded Error Details */}
           {isErrorPanelExpanded && (
-            <div className="max-h-64 overflow-y-auto bg-gray-900/30">
+            <div className={`max-h-64 overflow-y-auto ${isDark ? 'bg-gray-900/30' : 'bg-neutral-100'}`}>
               {sortedErrors.map((error, index) => (
                 <div 
                   key={index}
@@ -1105,24 +1155,24 @@ if (instructionType === 'cmp') {
                           <span className="font-medium text-white">
                             Line {error.line + 1}
                           </span>
-                          <span className="text-xs px-2 py-1 bg-gray-700 text-gray-300 rounded">
+                          <span className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-neutral-200 text-neutral-700'}`}>
                             {error.type === 'semicolon' ? 'Missing Semicolon' : 
                              error.type === 'syntax' ? 'Syntax Error' : 'Invalid Instruction'}
                           </span>
                         </div>
-                        <p className="text-gray-300 text-sm">{error.message}</p>
+                        <p className={`${isDark ? 'text-gray-300' : 'text-neutral-700'} text-sm`}>{error.message}</p>
                         
                         {/* Quick Fix Suggestion */}
                         {getQuickFix(error) && (
                           <div className="mt-2 flex items-center gap-2">
                             <Lightbulb className="h-3 w-3 text-yellow-400" />
-                            <span className="text-xs text-yellow-300">{getQuickFix(error)}</span>
+                            <span className={`text-xs ${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>{getQuickFix(error)}</span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 applyQuickFix(error);
                               }}
-                              className="text-xs px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded transition-colors"
+                              className={`text-xs px-2 py-1 rounded transition-colors ${isDark ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : 'bg-yellow-200 hover:bg-yellow-300 text-yellow-900'}`}
                             >
                               Fix
                             </button>
@@ -1130,30 +1180,30 @@ if (instructionType === 'cmp') {
                         )}
                       </div>
                     </div>
-                    <div className="text-xs text-gray-500 ml-2">
+                    <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-neutral-500'} ml-2`}>
                       {selectedError === index ? 'Hide' : 'Show'} Details
                     </div>
                   </div>
                   
                   {/* Expanded Error Details */}
                   {selectedError === index && (
-                    <div className="mt-3 pl-7 border-l border-gray-600">
-                      <div className="text-xs text-gray-400">
+                    <div className={`mt-3 pl-7 border-l ${isDark ? 'border-gray-600' : 'border-neutral-300'}`}>
+                      <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-neutral-600'}`}>
                         <div className="mb-1">
-                          <strong>Current line:</strong> <code className="bg-gray-800 px-1 rounded">{lines[error.line] || '(empty)'}</code>
+                          <strong>Current line:</strong> <code className={`${isDark ? 'bg-gray-800' : 'bg-neutral-200'} px-1 rounded`}>{lines[error.line] || '(empty)'}</code>
                         </div>
                         {error.type === 'semicolon' && (
-                          <div className="text-yellow-300">
+                          <div className={`${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>
                             💡 <strong>Tip:</strong> All instructions must end with a semicolon (;)
                           </div>
                         )}
                         {error.type === 'syntax' && (
-                          <div className="text-blue-300">
+                          <div className={`${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
                             💡 <strong>Tip:</strong> Check the instruction format and operands
                           </div>
                         )}
                         {error.type === 'invalid_instruction' && (
-                          <div className="text-purple-300">
+                          <div className={`${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
                             💡 <strong>Tip:</strong> Use the instruction reference (ℹ️ icon) to see valid instructions
                           </div>
                         )}
@@ -1168,7 +1218,7 @@ if (instructionType === 'cmp') {
       )}
       
       <div className="flex flex-row flex-1">
-        <div className="bg-[#1f1f1f] text-gray-400 px-2 py-2 text-right select-none flex-shrink-0">
+        <div className={`${isDark ? 'bg-[#1f1f1f] text-gray-400' : 'bg-neutral-200 text-neutral-600'} px-2 py-2 text-right select-none flex-shrink-0`}>
           {lines.map((_, index) => {
             const isActive = index === highlightedLine;
             const lineError = errors.find(e => e.line === index);
@@ -1178,7 +1228,7 @@ if (instructionType === 'cmp') {
               <div
                 key={index}
                 className={`leading-[3rem] relative ${
-                  isActive ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : ''
+                  isActive ? (isDark ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : 'bg-blue-100 text-blue-900 font-bold border-2 border-blue-300') : ''
                 }`}
               >
                 {index + 1}
@@ -1199,7 +1249,7 @@ if (instructionType === 'cmp') {
           {/* Syntax-highlight overlay for comments */}
           <div
             ref={overlayRef}
-            className="absolute inset-0 z-10 whitespace-pre-wrap break-words font-mono p-2 text-white pointer-events-none overflow-hidden"
+            className={`absolute inset-0 z-10 whitespace-pre-wrap break-words font-mono p-2 pointer-events-none overflow-hidden ${isDark ? 'text-white' : 'text-neutral-900'}`}
             style={{ lineHeight: '3rem' }}
             dangerouslySetInnerHTML={{ __html: getCommentHighlightedHtml(instructions) }}
           />
@@ -1218,12 +1268,12 @@ if (instructionType === 'cmp') {
             onScroll={handleScroll}
             placeholder="Type your instructions here."
             className="w-full h-full bg-transparent p-2 resize-none outline-none leading-[3rem] whitespace-pre relative z-20"
-            style={{ lineHeight: '3rem', color: 'transparent', caretColor: 'white' }}
+            style={{ lineHeight: '3rem', color: 'transparent', caretColor: isDark ? 'white' : 'black' }}
           />
           {/* Highlight overlay for current line */}
           {highlightedLine >= 0 && (
             <div 
-              className="absolute left-2 right-2 bg-blue-500/20 border-l-4 border-blue-500 z-0"
+              className={`absolute left-2 right-2 z-0 ${isDark ? 'bg-blue-500/20 border-blue-500' : 'bg-blue-200/40 border-blue-400'} border-l-4`}
               style={{ 
                 top: `calc(${highlightedLine * 3}rem + 0.5rem)`, 
                 height: '3rem' 
@@ -1240,9 +1290,9 @@ if (instructionType === 'cmp') {
               <div 
                 key={`error-${index}`}
                 className={`absolute left-2 right-2 border-l-4 z-0 ${
-                  error.type === 'semicolon' ? 'bg-orange-500/10 border-orange-400' :
-                  error.type === 'syntax' ? 'bg-red-500/10 border-red-400' :
-                  'bg-red-500/15 border-red-500'
+                  error.type === 'semicolon' ? (isDark ? 'bg-orange-500/10 border-orange-400' : 'bg-orange-100 border-orange-400') :
+                  error.type === 'syntax' ? (isDark ? 'bg-red-500/10 border-red-400' : 'bg-red-100 border-red-400') :
+                  (isDark ? 'bg-red-500/15 border-red-500' : 'bg-red-100 border-red-500')
                 }`}
                 style={{ 
                   top: `calc(${error.line * 3}rem + 0.5rem)`, 

@@ -40,9 +40,15 @@ import { executeLDAX } from '../functions/ldax';
 import { executeSTAX } from '../functions/stax';
 import { executeINX } from '../functions/inx';
 import { executeDCX } from '../functions/dcx';
+import { executeADDCI } from '../functions/addci';
+import { executeSUBBI } from '../functions/subbi';
+import { executeSETC } from '../functions/setc';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function ControlBar() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [showDropdown, setShowDropdown] = useState(false);
   const { fileName, hasUnsavedChanges, openFile, saveFile, saveAsFile, exportAsAsm, exportAsHex } = useFileContext();
 
@@ -412,9 +418,25 @@ case 'cpi':
           case 'mul':
           result = executeMUL(nextInstruction, regs, cpuFlags, memory);
           break;  
-          case 'div':
-            result = executeDIV(nextInstruction, regs, cpuFlags, memory);
+          case 'div': {
+            const divResult = executeDIV(nextInstruction, regs, cpuFlags, memory);
+            if (divResult.halt) {
+              window.dispatchEvent(new CustomEvent('externalErrors', {
+                detail: [{
+                  line: currentLineRef.current,
+                  message: divResult.error ?? 'DIVIDE BY ZERO',
+                  type: 'syntax'
+                }]
+              }));
+              currentLineRef.current = rawLines.length;
+              setCpuFlags(divResult.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: divResult.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: divResult.flags }));
+              return;
+            }
+            result = divResult;
             break;
+          }
           //act
           case 'addc':
             result = executeADDC(nextInstruction, regs, cpuFlags, memory);
@@ -423,15 +445,37 @@ case 'cpi':
           case 'addi':
             result = executeADDI(nextInstruction, regs, cpuFlags);
             break;
+          case 'addci':
+            result = executeADDCI(nextInstruction, regs, cpuFlags);
+            break;
           case 'sub':
             result = executeSUB(nextInstruction, regs, cpuFlags, memory);
             break;
           case 'subb':
             result = executeSUBB(nextInstruction, regs, cpuFlags, memory);
             break;
-          case 'divi':
-            result = executeDIVI(nextInstruction, regs, cpuFlags);
+          case 'subbi':
+            result = executeSUBBI(nextInstruction, regs, cpuFlags);
             break;
+          case 'divi': {
+            const diviResult = executeDIVI(nextInstruction, regs, cpuFlags);
+            if (diviResult.halt) {
+              window.dispatchEvent(new CustomEvent('externalErrors', {
+                detail: [{
+                  line: currentLineRef.current,
+                  message: diviResult.error ?? 'DIVIDE BY ZERO',
+                  type: 'syntax'
+                }]
+              }));
+              currentLineRef.current = rawLines.length;
+              setCpuFlags(diviResult.flags);
+              window.dispatchEvent(new CustomEvent('setRegisters', { detail: diviResult.registers }));
+              window.dispatchEvent(new CustomEvent('setFlags', { detail: diviResult.flags }));
+              return;
+            }
+            result = diviResult;
+            break;
+          }
           case 'and':
             result = executeAND(nextInstruction, regs, cpuFlags, memory);
             break;
@@ -452,6 +496,9 @@ case 'cpi':
             break;
           case 'xori':
             result = executeXORI(nextInstruction, regs, cpuFlags);
+            break;
+          case 'setc':
+            result = executeSETC(nextInstruction, regs, cpuFlags);
             break;
           case 'hlt':
             result = executeHLT(nextInstruction, regs, cpuFlags);
@@ -811,14 +858,38 @@ case 'cpi':
             case 'mul':
               result = executeMUL(nextInstruction, regs, currentFlags, memory);
             break;
-            case 'div':
-              result = executeDIV(nextInstruction, regs, currentFlags, memory);
+            case 'div': {
+              const divResult = executeDIV(nextInstruction, regs, currentFlags, memory);
+              if (divResult.halt) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: divResult.error ?? 'DIVIDE BY ZERO',
+                    type: 'syntax'
+                  }]
+                }));
+                isRunningRef.current = false;
+                currentLineRef.current = rawLines.length;
+                currentFlags = divResult.flags;
+                setCpuFlags(divResult.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: divResult.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: divResult.flags }));
+                window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+                currentLineRef.current = 0;
+                isFirstStepRef.current = true;
+                return;
+              }
+              result = divResult;
               break;
+            }
             case 'addc':
               result = executeADDC(nextInstruction, regs, currentFlags, memory);
               break;
             case 'addi':
               result = executeADDI(nextInstruction, regs, currentFlags);
+              break;
+            case 'addci':
+              result = executeADDCI(nextInstruction, regs, currentFlags);
               break;
             case 'sub':
               result = executeSUB(nextInstruction, regs, currentFlags, memory);
@@ -826,9 +897,33 @@ case 'cpi':
             case 'subb':
               result = executeSUBB(nextInstruction, regs, currentFlags, memory);
               break;
-            case 'divi':
-              result = executeDIVI(nextInstruction, regs, currentFlags);
+            case 'subbi':
+              result = executeSUBBI(nextInstruction, regs, currentFlags);
               break;
+            case 'divi': {
+              const diviResult = executeDIVI(nextInstruction, regs, currentFlags);
+              if (diviResult.halt) {
+                window.dispatchEvent(new CustomEvent('externalErrors', {
+                  detail: [{
+                    line: currentLineRef.current,
+                    message: diviResult.error ?? 'DIVIDE BY ZERO',
+                    type: 'syntax'
+                  }]
+                }));
+                isRunningRef.current = false;
+                currentLineRef.current = rawLines.length;
+                currentFlags = diviResult.flags;
+                setCpuFlags(diviResult.flags);
+                window.dispatchEvent(new CustomEvent('setRegisters', { detail: diviResult.registers }));
+                window.dispatchEvent(new CustomEvent('setFlags', { detail: diviResult.flags }));
+                window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
+                currentLineRef.current = 0;
+                isFirstStepRef.current = true;
+                return;
+              }
+              result = diviResult;
+              break;
+            }
             case 'and':
               result = executeAND(nextInstruction, regs, currentFlags, memory);
               break;
@@ -849,6 +944,9 @@ case 'cpi':
               break;
             case 'xori':
               result = executeXORI(nextInstruction, regs, currentFlags);
+              break;
+            case 'setc':
+              result = executeSETC(nextInstruction, regs, currentFlags);
               break;
             case 'hlt':
               result = executeHLT(nextInstruction, regs, currentFlags);
@@ -946,7 +1044,7 @@ case 'cpi':
 
   
   return (
-    <div className="bg-[#d3d3d3] text-white flex items-center justify-between px-4 py-2 text-sm font-medium relative z-25">
+    <div className={`${isDark ? 'bg-[#d3d3d3] text-white' : 'bg-gray-100 text-gray-900'} flex items-center justify-between px-4 py-2 text-sm font-medium relative z-25`}>
       {/* File Menu */}
       <div className="relative">
         <button
@@ -960,28 +1058,28 @@ case 'cpi':
         </button>
 
         {showDropdown && (
-          <div className="absolute top-8 left-0 bg-[#3a3a3a] border border-gray-600 rounded shadow-lg z-25">
+          <div className={`${isDark ? 'bg-[#3a3a3a] border border-gray-600' : 'bg-white border border-gray-200'} absolute top-8 left-0 rounded shadow-lg z-25`}>
             <ul className="flex flex-col text-left">
               <li 
-                className="px-10 py-4 hover:bg-green-700 cursor-pointer"
+                className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-10 py-4 cursor-pointer`}
                 onClick={handleOpen}
               >
                 Open (.opgo/.opg/.mpc)
               </li>
               <li 
-                className="px-10 py-4 hover:bg-green-700 cursor-pointer"
+                className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-10 py-4 cursor-pointer`}
                 onClick={handleSave}
               >
                 Save
               </li>
               <li 
-                className="px-8 py-4 hover:bg-green-700 cursor-pointer"
+                className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-8 py-4 cursor-pointer`}
                 onClick={handleSaveAs}
               >
                 Save As (.opgo)
               </li>
               <li 
-                className="px-8 py-4 hover:bg-green-700 cursor-pointer"
+                className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-8 py-4 cursor-pointer`}
                 onClick={handleExportAsm}
               >
                 Export as .asm
@@ -995,17 +1093,17 @@ case 'cpi':
       {/* Action Buttons Styled Like Image */}
       <div className="flex items-center gap-4">
         {/* Stop Button */}
-        <button className="bg-red-600 hover:bg-red-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleStop}>
+        <button className={`${isDark ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} rounded-full p-2 flex items-center justify-center cursor-pointer`} onClick={handleStop}>
           <div className="bg-white w-3.5 h-3.5" />
         </button>
 
         {/* Step Into Button */}
-        <button className="bg-[#add8e6] hover:bg-[#9ccbe0] text-black border border-black px-4 py-1 rounded cursor-pointer" onClick={stepInto}>
+        <button className={`${isDark ? 'bg-[#add8e6] hover:bg-[#9ccbe0] text-black border border-black' : 'bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-300'} px-4 py-1 rounded cursor-pointer`} onClick={stepInto}>
           Step Into
         </button>
 
         {/* Run Button */}
-        <button className="bg-blue-600 hover:bg-blue-700 rounded-full p-2 flex items-center justify-center cursor-pointer" onClick={handleRun}>
+        <button className={`${isDark ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'} rounded-full p-2 flex items-center justify-center cursor-pointer`} onClick={handleRun}>
           <PlayIcon className="h-4.5 w-4.5 text-white" />
         </button>
 

@@ -3,8 +3,11 @@ import { gsap } from "gsap"
 import FlagsTitle from "../assets/Flag Title.png"
 import Active from "../assets/Active.png"
 import Unactive from "../assets/Unactive.png"
+import { useTheme } from "../contexts/ThemeContext"
 
 export default function Flags(){
+    const { theme } = useTheme()
+    const isDark = theme === 'dark'
     const [zeroFlag, setZeroFlag] = useState(0)
     const [signFlag, setSignFlag] = useState(0)
     const [carryFlag, setCarryFlag] = useState(0)
@@ -88,33 +91,37 @@ export default function Flags(){
     }, []);
 
     return(
-    <div className="bg-[#2c2c2c] h-full border-3 border-solid border-[#3F3F46] flex flex-col items-center justify-center">
-       <img src={FlagsTitle} className="w-35.5 h-[15%] mt-0" />
+    <div className={`${isDark ? 'bg-[#2c2c2c] border-[#3F3F46]' : 'bg-white border-gray-200'} h-full border-3 border-solid flex flex-col items-center justify-center`}>
+       <img
+         src={isDark ? FlagsTitle : "/assets/Flag Title Light.png"}
+         onError={(e) => { (e.currentTarget as HTMLImageElement).src = FlagsTitle; }}
+         className="w-35.5 h-[15%] mt-0"
+       />
        <div className="flex flex-row w-[100%] h-[85%] justify-center">
             <div className="w-[30%] flex justify-center">
                 <div ref={zeroRef} className="w-[90%]">
                     <img src={zeroFlag === 1 ? Active : Unactive} className="size-15" />
-                    <div className="bg-[#06b6d4] w-[100%] h-[60%] flex flex-col gap-5 items-center">
-                        <h2 className="font-bold text-center pt-2">ZERO</h2>
-                        <h1 className="w-10 h-10 text-center text-white bg-transparent border-2 border-white rounded text-xl font-mono flex items-center justify-center">{zeroFlag}</h1>
+                    <div className={`${isDark ? 'bg-[#06b6d4]' : 'bg-cyan-100'} w-[100%] h-[60%] flex flex-col gap-5 items-center`}>
+                        <h2 className={`font-bold text-center pt-2 ${isDark ? '' : 'text-gray-900'}`}>ZERO</h2>
+                        <h1 className={`w-10 h-10 text-center ${isDark ? 'text-white border-white' : 'text-gray-900 border-gray-400'} bg-transparent border-2 rounded text-xl font-mono flex items-center justify-center`}>{zeroFlag}</h1>
                     </div>
                 </div>
             </div>
             <div className="w-[30%] flex justify-center">
                 <div ref={signRef} className="w-[90%]">
                     <img src={signFlag === 1 ? Active : Unactive} className="size-15" />
-                    <div className="bg-[#f59e0b] w-[100%] h-[60%] flex flex-col gap-5 items-center">
-                        <h2 className="font-bold text-center pt-2">SIGN</h2>
-                        <h1 className="w-10 h-10 text-center text-white bg-transparent border-2 border-white rounded text-xl font-mono flex items-center justify-center">{signFlag}</h1>
+                    <div className={`${isDark ? 'bg-[#f59e0b]' : 'bg-amber-100'} w-[100%] h-[60%] flex flex-col gap-5 items-center`}>
+                        <h2 className={`font-bold text-center pt-2 ${isDark ? '' : 'text-gray-900'}`}>SIGN</h2>
+                        <h1 className={`w-10 h-10 text-center ${isDark ? 'text-white border-white' : 'text-gray-900 border-gray-400'} bg-transparent border-2 rounded text-xl font-mono flex items-center justify-center`}>{signFlag}</h1>
                     </div>
                 </div>
             </div>
             <div className="w-[30%] flex justify-center">
                 <div ref={carryRef} className="w-[90%]">
                     <img src={carryFlag === 1 ? Active : Unactive} className="size-15" />
-                    <div className="bg-[#ec4899] w-[100%] h-[60%] flex flex-col gap-5 items-center">
-                        <h2 className="font-bold text-center pt-2">CARRY</h2>
-                        <h1 className="w-10 h-10 text-center text-white bg-transparent border-2 border-white rounded text-xl font-mono flex items-center justify-center">{carryFlag}</h1>
+                    <div className={`${isDark ? 'bg-[#ec4899]' : 'bg-pink-100'} w-[100%] h-[60%] flex flex-col gap-5 items-center`}>
+                        <h2 className={`font-bold text-center pt-2 ${isDark ? '' : 'text-gray-900'}`}>CARRY</h2>
+                        <h1 className={`w-10 h-10 text-center ${isDark ? 'text-white border-white' : 'text-gray-900 border-gray-400'} bg-transparent border-2 rounded text-xl font-mono flex items-center justify-center`}>{carryFlag}</h1>
                     </div>
                 </div>
             </div>

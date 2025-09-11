@@ -10,8 +10,11 @@ import FileNameDialog from "./components/FileNameDialog";
 import InstructionInfo from "./components/InstructionInfo";
 import Profile from "./pages/Profile"; // ✅ import Profile page
 import { FileProvider, useFileContext } from "./contexts/FileContext";
+import { useTheme } from "./contexts/ThemeContext";
 
 function Simulator() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const { showFileNameDialog, setShowFileNameDialog, handleSaveWithName, fileName } =
     useFileContext();
 
@@ -34,19 +37,19 @@ function Simulator() {
   return (
     <>
       <div className="flex flex-row w-full h-[calc(100vh-48px)]">
-        <div className="w-[45%] bg-[#d9d9d9] flex flex-col">
+        <div className={`w-[45%] ${isDark ? 'bg-[#d9d9d9]' : 'bg-white'} flex flex-col`}>
           <ControlBar />
           <InstructionInput />
         </div>
-        <div className="w-[35%] bg-[#3F3F46] flex flex-col">
-          <div className="h-[35%] bg-green-500">
+        <div className={`w-[35%] ${isDark ? 'bg-[#3F3F46]' : 'bg-gray-100'} flex flex-col`}>
+          <div className={`${isDark ? 'bg-green-500' : 'bg-emerald-200'} h-[35%]`}>
             <Flags />
           </div>
-          <div className="h-[65%] bg-green-700">
+          <div className={`${isDark ? 'bg-green-700' : 'bg-emerald-300'} h-[65%]`}>
             <Registers />
           </div>
         </div>
-        <div className="w-[20%] bg-black text-white p-2">
+        <div className={`w-[20%] ${isDark ? 'bg-black text-white' : 'bg-gray-50 text-gray-900'} p-2`}>
           <UserGrid />
         </div>
       </div>
