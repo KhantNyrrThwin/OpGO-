@@ -45,6 +45,7 @@ const instructions: Instruction[] = [
   { name: "STAX rp", description: "Store accumulator into memory pointed to by register pair (B-C, D-E)" },
   { name: "DCX rp", description: "Decrement register pair by 1 (B-C, D-E, H-L)" },
   { name: "INX rp", description: "Increment register pair by 1 (B-C, D-E, H-L)" },
+  { name: "SETC", description: "Set carry flag C to 1" },
   { name: "HLT", description: "Stop program execution" },
 ];
 

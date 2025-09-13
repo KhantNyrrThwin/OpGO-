@@ -722,7 +722,7 @@ case 'cpi':
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                await new Promise(resolve => setTimeout(resolve, 500)); // 1 second delay
                 continue; // Skip incrementing line
               }
               break;
@@ -734,7 +734,7 @@ case 'cpi':
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                await new Promise(resolve => setTimeout(resolve, 500)); // 1 second delay
                 continue; // Skip incrementing line
               }
               break;
@@ -746,7 +746,7 @@ case 'cpi':
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                await new Promise(resolve => setTimeout(resolve, 500)); // 1 second delay
                 continue; // Skip incrementing line
               }
               break;
@@ -758,7 +758,7 @@ case 'cpi':
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+                await new Promise(resolve => setTimeout(resolve, 500)); // 1 second delay
                 continue; // Skip incrementing line
               }
               break;
@@ -771,7 +771,7 @@ case 'cpi':
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 100ms delay
+                await new Promise(resolve => setTimeout(resolve, 500)); // 100ms delay
                 continue; // Skip incrementing line
             }
             break;
@@ -783,7 +783,7 @@ case 'cpi':
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 100ms delay
+                await new Promise(resolve => setTimeout(resolve, 500)); // 100ms delay
                 continue; // Skip incrementing line
             }
             break;
@@ -795,7 +795,7 @@ case 'cpi':
                 setCpuFlags(result.flags);
                 window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-                await new Promise(resolve => setTimeout(resolve, 1000)); // 100ms delay
+                await new Promise(resolve => setTimeout(resolve, 500)); // 100ms delay
                 continue; // Skip incrementing line
             }
             break;
@@ -1009,7 +1009,7 @@ case 'cpi':
         currentLineRef.current += 1;
 
         // Wait 1 second before next step
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
       // Clear highlight after run completes
