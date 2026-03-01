@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { AlertCircle, X, ChevronDown, ChevronUp, AlertTriangle, Info, Lightbulb } from 'lucide-react';
+
 import { useFileContext } from '../contexts/FileContext';
 import { parseLabels } from '../functions/parseLabels';
 
@@ -17,8 +17,8 @@ export default function InstructionInput() {
   const [instructions, setInstructions] = useState("");
   const [highlightedLine, setHighlightedLine] = useState<number>(-1);
   const [errors, setErrors] = useState<ValidationError[]>([]);
-  const [isErrorPanelExpanded, setIsErrorPanelExpanded] = useState(false);
-  const [selectedError, setSelectedError] = useState<number | null>(null);
+  // Suggestion state
+  const [suggestion, setSuggestion] = useState<{ line: number, text: string } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const { setHasUnsavedChanges } = useFileContext();
@@ -26,84 +26,195 @@ export default function InstructionInput() {
 
   const lines = instructions.split('\n');
 
+  // Available instructions for auto-suggest
+  const instructionDocs = [
+    { cmd: "MOV", desc: "A, B" },
+    { cmd: "MVI", desc: "A, 05H" },
+    { cmd: "LXI", desc: "H, 2000H" },
+    { cmd: "LDA", desc: "2000H" },
+    { cmd: "STA", desc: "2000H" },
+    { cmd: "LHLD", desc: "2000H" },
+    { cmd: "SHLD", desc: "2000H" },
+    { cmd: "LDAX", desc: "B" },
+    { cmd: "STAX", desc: "B" },
+    { cmd: "XCHG", desc: "" },
+    { cmd: "ADD", desc: "B" },
+    { cmd: "ADI", desc: "05H" },
+    { cmd: "ADDI", desc: "05H" },
+    { cmd: "ADC", desc: "B" },
+    { cmd: "ADDC", desc: "B" },
+    { cmd: "ACI", desc: "05H" },
+    { cmd: "ADDCI", desc: "05H" },
+    { cmd: "SUB", desc: "B" },
+    { cmd: "SUI", desc: "05H" },
+    { cmd: "SUBI", desc: "05H" },
+    { cmd: "SBB", desc: "B" },
+    { cmd: "SUBB", desc: "B" },
+    { cmd: "SBI", desc: "05H" },
+    { cmd: "SUBBI", desc: "05H" },
+    { cmd: "INR", desc: "A" },
+    { cmd: "INX", desc: "H" },
+    { cmd: "DCR", desc: "A" },
+    { cmd: "DCX", desc: "H" },
+    { cmd: "DAA", desc: "" },
+    { cmd: "ANA", desc: "B" },
+    { cmd: "AND", desc: "B" },
+    { cmd: "ANI", desc: "05H" },
+    { cmd: "ANDI", desc: "05H" },
+    { cmd: "ORA", desc: "B" },
+    { cmd: "OR", desc: "B" },
+    { cmd: "ORI", desc: "05H" },
+    { cmd: "XRA", desc: "B" },
+    { cmd: "XOR", desc: "B" },
+    { cmd: "XRI", desc: "05H" },
+    { cmd: "XORI", desc: "05H" },
+    { cmd: "CMA", desc: "" },
+    { cmd: "NOT", desc: "" },
+    { cmd: "CMP", desc: "B" },
+    { cmd: "CPI", desc: "05H" },
+    { cmd: "RLC", desc: "" },
+    { cmd: "RRC", desc: "" },
+    { cmd: "RAL", desc: "" },
+    { cmd: "RAR", desc: "" },
+    { cmd: "STC", desc: "" },
+    { cmd: "SETC", desc: "" },
+    { cmd: "CMC", desc: "" },
+    { cmd: "JMP", desc: "LOOP" },
+    { cmd: "JC", desc: "LOOP" },
+    { cmd: "JNC", desc: "LOOP" },
+    { cmd: "JZ", desc: "LOOP" },
+    { cmd: "JNZ", desc: "LOOP" },
+    { cmd: "JP", desc: "LOOP" },
+    { cmd: "JM", desc: "LOOP" },
+    { cmd: "JPE", desc: "LOOP" },
+    { cmd: "JPO", desc: "LOOP" },
+    { cmd: "CALL", desc: "SUBROUTINE" },
+    { cmd: "RET", desc: "" },
+    { cmd: "PUSH", desc: "B" },
+    { cmd: "POP", desc: "B" },
+    { cmd: "IN", desc: "00H" },
+    { cmd: "OUT", desc: "00H" },
+    { cmd: "EI", desc: "" },
+    { cmd: "DI", desc: "" },
+    { cmd: "HLT", desc: "" },
+    { cmd: "NOP", desc: "" },
+    { cmd: "MUL", desc: "B" },
+    { cmd: "MULI", desc: "05H" },
+    { cmd: "DIV", desc: "B" },
+    { cmd: "DIVI", desc: "05H" },
+    { cmd: "TEST", desc: "" }
+  ];
+
+  // Logic to find a suggestion based on current text formatting
+  const calculateSuggestion = (text: string, selectionStart: number) => {
+    // Find which line the cursor is on
+    const linesToCursor = text.substring(0, selectionStart).split('\n');
+    const currentLineIdx = linesToCursor.length - 1;
+    const currentLineText = lines[currentLineIdx] || "";
+    const textBeforeCursor = linesToCursor[currentLineIdx];
+
+    // Only suggest if cursor is at the end of the line (or end of typed text in that line)
+    // and there's no trailing semicolon yet (unless it's part of what we're suggesting)
+    if (textBeforeCursor !== currentLineText || textBeforeCursor.trim() === "") {
+      setSuggestion(null);
+      return;
+    }
+
+    const trimmed = textBeforeCursor.trim();
+    if (trimmed.startsWith('//') || trimmed.startsWith(';')) {
+      setSuggestion(null);
+      return;
+    }
+
+    const parts = trimmed.split(/\s+/);
+    if (parts.length === 1 && parts[0].length > 0) {
+      // Suggest command
+      const cmdStart = parts[0].toUpperCase();
+      const match = instructionDocs.find(doc => doc.cmd.startsWith(cmdStart));
+      if (match) {
+        // Build suggestion: complete the command, and if it has args, show them, and add a semicolon
+        const remainingCmd = match.cmd.substring(cmdStart.length);
+        const argHint = (match.desc ? ` ${match.desc}` : '') + ';';
+        // If the command is exact match, suggest uppercase args, else suggest remainder + args
+        const suggestionText = (cmdStart === match.cmd) ? argHint : (remainingCmd + argHint);
+        if (suggestionText) {
+          setSuggestion({ line: currentLineIdx, text: suggestionText });
+          return;
+        }
+      }
+    } else if (parts.length > 1) {
+      // Suggest arguments if command matches exactly but arguments are incomplete
+      const cmd = parts[0].toUpperCase();
+      const match = instructionDocs.find(doc => doc.cmd === cmd);
+      if (match && match.desc) {
+        // e.g. "mvi a," -> suggest " data8"
+        // This is a naive suggestion just appending what's likely missing based on commas or spaces
+        const argTextPassed = textBeforeCursor.substring(textBeforeCursor.toUpperCase().indexOf(cmd) + cmd.length).trim();
+
+        // Naive logic: if expected is "reg, data8" and we typed "a", suggest ", data8"
+        // if we typed "a,", suggest " data8"
+
+        // Count commas to know which arg we are on
+        const passedCommas = (argTextPassed.match(/,/g) || []).length;
+        const expectedCommas = (match.desc.match(/,/g) || []).length;
+
+        if (passedCommas === 0 && expectedCommas === 1) {
+          // We are typing the first arg
+          if (argTextPassed.length > 0 && !argTextPassed.includes(',')) {
+            setSuggestion({ line: currentLineIdx, text: `, ${match.desc.split(',')[1].trim()};` });
+            return;
+          }
+        } else if (passedCommas === 1 && expectedCommas === 1) {
+          // We typing second arg
+          const afterComma = argTextPassed.split(',')[1]?.trim() || '';
+          if (afterComma === '') {
+            setSuggestion({ line: currentLineIdx, text: `${match.desc.split(',')[1].trim()};` });
+            return;
+          }
+        } else if (passedCommas === 0 && expectedCommas === 0) {
+          // No commas expected, just one argument (like JMP LOOP)
+          if (argTextPassed.length > 0) {
+            // We've typed part of the argument
+            if (match.desc.startsWith(argTextPassed.toUpperCase())) {
+              setSuggestion({ line: currentLineIdx, text: `${match.desc.substring(argTextPassed.length)};` });
+              return;
+            } else {
+              setSuggestion({ line: currentLineIdx, text: ';' });
+              return;
+            }
+          }
+        }
+      }
+    }
+
+    setSuggestion(null);
+  };
+
   // Function to validate all errors (for run button)
   const validateAllErrors = (): ValidationError[] => {
     return validateInstructions(instructions, labelMap);
   };
 
   // Helper functions for error handling
-  const getErrorIcon = (type: string) => {
-    switch (type) {
-      case 'semicolon': return <AlertTriangle className="h-4 w-4 text-orange-400" />;
-      case 'syntax': return <AlertCircle className="h-4 w-4 text-red-400" />;
-      case 'invalid_instruction': return <X className="h-4 w-4 text-red-500" />;
-      default: return <Info className="h-4 w-4 text-blue-400" />;
-    }
-  };
-
-  const getErrorColor = (type: string) => {
-    if (isDark) {
-      switch (type) {
-        case 'semicolon': return 'border-orange-400 bg-orange-900/20';
-        case 'syntax': return 'border-red-400 bg-red-900/20';
-        case 'invalid_instruction': return 'border-red-500 bg-red-900/30';
-        default: return 'border-blue-400 bg-blue-900/20';
-      }
-    } else {
-      switch (type) {
-        case 'semicolon': return 'border-orange-400 bg-orange-100';
-        case 'syntax': return 'border-red-400 bg-red-100';
-        case 'invalid_instruction': return 'border-red-500 bg-red-100';
-        default: return 'border-blue-400 bg-blue-100';
-      }
-    }
-  };
-
-  const getErrorPriority = (type: string) => {
-    switch (type) {
-      case 'semicolon': return 1; // High priority
-      case 'syntax': return 2;    // Medium priority
-      case 'invalid_instruction': return 3; // Low priority
-      default: return 4;
-    }
-  };
-
-  const getQuickFix = (error: ValidationError) => {
-    if (error.type === 'semicolon') {
-      return 'Add semicolon (;) at the end';
-    }
-    return null;
-  };
-
-  const applyQuickFix = (error: ValidationError) => {
-    if (error.type === 'semicolon') {
-      const lines = instructions.split('\n');
-      if (lines[error.line] && !lines[error.line].trim().endsWith(';')) {
-        lines[error.line] = lines[error.line].trim() + ';';
-        setInstructions(lines.join('\n'));
-        setHasUnsavedChanges(true);
-      }
-    }
-  };
-
-  // Sort errors by priority
-  const sortedErrors = [...errors].sort((a, b) => getErrorPriority(a.type) - getErrorPriority(b.type));
 
   // Expose validation function to parent components
   useEffect(() => {
     const handleValidateAll = () => {
       const allErrors = validateAllErrors();
       setErrors(allErrors);
+      window.dispatchEvent(new CustomEvent('onErrorsUpdated', { detail: allErrors }));
       console.log('Validation errors:', allErrors);
     };
 
     const handleExternalErrors = (event: CustomEvent) => {
       const incoming = event.detail as ValidationError[];
       setErrors(incoming);
+      window.dispatchEvent(new CustomEvent('onErrorsUpdated', { detail: incoming }));
     };
 
     const handleClearErrors = () => {
       setErrors([]);
+      window.dispatchEvent(new CustomEvent('onErrorsUpdated', { detail: [] }));
     };
 
     window.addEventListener('validateInstructions', handleValidateAll);
@@ -122,19 +233,19 @@ export default function InstructionInput() {
   const validateInstructions = (text: string, labelMap: Record<string, number>): ValidationError[] => {
     const validationErrors: ValidationError[] = [];
     const instructionLines = text.split('\n');
-    
+
     instructionLines.forEach((line, index) => {
       const trimmedLine = line.trim();
-      
+
       // Skip empty and full-line comments
       if (trimmedLine === '' || trimmedLine.startsWith('//') || trimmedLine.startsWith(';')) return;
 
-        // Remove inline '//' comment and treat anything after first ';' as comment
-        const beforeSlash = line.split('//')[0];
-        const semiIdxGlobal = beforeSlash.indexOf(';');
-        const codeForChecks = (semiIdxGlobal >= 0 ? beforeSlash.slice(0, semiIdxGlobal + 1) : beforeSlash).trim();
-        const codeForParse = (semiIdxGlobal >= 0 ? beforeSlash.slice(0, semiIdxGlobal + 1) : beforeSlash).trim();
-        if (codeForParse === '') return;
+      // Remove inline '//' comment and treat anything after first ';' as comment
+      const beforeSlash = line.split('//')[0];
+      const semiIdxGlobal = beforeSlash.indexOf(';');
+      const codeForChecks = (semiIdxGlobal >= 0 ? beforeSlash.slice(0, semiIdxGlobal + 1) : beforeSlash).trim();
+      const codeForParse = (semiIdxGlobal >= 0 ? beforeSlash.slice(0, semiIdxGlobal + 1) : beforeSlash).trim();
+      if (codeForParse === '') return;
 
       // Split label if present (using the part considered as code)
       const labelSplit = codeForParse.split(':');
@@ -168,16 +279,16 @@ export default function InstructionInput() {
         });
         return;
       }
-      
-        // Check for semicolon at end of the code part (before any comment)
-        if (!codeForChecks.endsWith(';')) {
+
+      // Check for semicolon at end of the code part (before any comment)
+      if (!codeForChecks.endsWith(';')) {
         validationErrors.push({
           line: index,
           message: `Line ${index + 1}: Instruction must end with semicolon (;)`,
           type: 'semicolon'
         });
       }
-      
+
 
       // Check for valid instruction format
       const raw = instructionPart.replace(/;$/, '').trim();
@@ -189,177 +300,178 @@ export default function InstructionInput() {
         ? opcode + raw.slice(opcode.length) // lowercase only the mnemonic
         : raw.toLowerCase(); // lowercase entire instruction for others
 
-      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr','divi','and','andi','or','ori','xor','xori','not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi','add','lda','sta','inx','dcx', 'lxi', 'ldax', 'stax', 'setc', 'addci', 'subbi' ];
-  
-      
+      const validInstructions = ['mov', 'mvi', 'jmp', 'jnz', 'jz', 'jnc', 'subi', 'muli', 'mul', 'div', 'jp', 'jm', 'jc', 'inr', 'dcr', 'divi', 'and', 'andi', 'or', 'ori', 'xor', 'xori', 'not', 'addc', 'addi', 'sub', 'subb', 'hlt', 'cmp', 'cpi', 'add', 'lda', 'sta', 'inx', 'dcx', 'lxi', 'ldax', 'stax', 'setc', 'addci', 'subbi', 'test'];
+
+
       if (instruction.length > 0) {
         const instructionType = instruction.split(' ')[0];
-        if (!validInstructions.includes(instructionType)) {          validationErrors.push({
+        if (!validInstructions.includes(instructionType)) {
+          validationErrors.push({
             line: index,
 
             message: `Line ${index + 1}: Invalid instruction "${instructionType}".`,
             type: 'invalid_instruction'
           });
         }
-                    // Should already have MOV validation (keep this as is):
-            if (instructionType === 'mov') {
-              const parts = instruction.split(/\s+/);
-              if (parts.length < 3) {
-                validationErrors.push({
-                  line: index,
-                  message: `Line ${index + 1}: MOV requires two registers (e.g., MOV A,D)`,
-                  type: 'syntax'
-                });
-              } else if (parts.length > 3) {
-                validationErrors.push({
-                  line: index,
-                  message: `Line ${index + 1}: MOV has too many operands`,
-                  type: 'syntax'
-                });
-              } else if (!/^[abcdehlm]$/i.test(parts[1].replace(',', '')) || !/^[abcdehlm]$/i.test(parts[2])) {
-                validationErrors.push({
-                  line: index,
-                  message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L,M)`,
-                  type: 'syntax'
-                });
-              }
-            }
+        // Should already have MOV validation (keep this as is):
+        if (instructionType === 'mov') {
+          const parts = instruction.split(/\s+/);
+          if (parts.length < 3) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: MOV requires two registers (e.g., MOV A,D)`,
+              type: 'syntax'
+            });
+          } else if (parts.length > 3) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: MOV has too many operands`,
+              type: 'syntax'
+            });
+          } else if (!/^[abcdehlm]$/i.test(parts[1].replace(',', '')) || !/^[abcdehlm]$/i.test(parts[2])) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: MOV requires valid registers (A,B,C,D,E,H,L,M)`,
+              type: 'syntax'
+            });
+          }
+        }
         //BMM 
-         // === ADD === (register to accumulator: ADD B)
-          if (instructionType === 'add') {
-            const addPattern = /^add\s+[abcdehlm]$/i;
-            if (!addPattern.test(instruction)) {
-              validationErrors.push({
-                 line: index,
-                message: `Line ${index + 1}: ADD requires a valid register (A,B,C,D,E,H,L) or M for memory`,
-                type: 'syntax'
-              });
-            }
+        // === ADD === (register to accumulator: ADD B)
+        if (instructionType === 'add') {
+          const addPattern = /^add\s+[abcdehlm]$/i;
+          if (!addPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ADD requires a valid register (A,B,C,D,E,H,L) or M for memory`,
+              type: 'syntax'
+            });
           }
+        }
 
-          // === ADDCI === (add carry immediate)
-          if (instructionType === 'addci') {
-            const addciPattern = /^addci\s+[0-9a-f]{1,2}h?$/i;
-            if (!addciPattern.test(instruction)) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: ADDCI requires a valid 8-bit hexadecimal immediate value (e.g. ADDCI 3AH)`,
-                type: 'syntax'
-              });
-            }
+        // === ADDCI === (add carry immediate)
+        if (instructionType === 'addci') {
+          const addciPattern = /^addci\s+[0-9a-f]{1,2}h?$/i;
+          if (!addciPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: ADDCI requires a valid 8-bit hexadecimal immediate value (e.g. ADDCI 3AH)`,
+              type: 'syntax'
+            });
           }
+        }
 
-          // === SUBBI === (subtract borrow immediate)
-          if (instructionType === 'subbi') {
-            const subbiPattern = /^subbi\s+[0-9a-f]{1,2}h?$/i;
-            if (!subbiPattern.test(instruction)) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: SUBBI requires a valid 8-bit hexadecimal immediate value (e.g. SUBBI 2FH)`,
-                type: 'syntax'
-              });
-            }
+        // === SUBBI === (subtract borrow immediate)
+        if (instructionType === 'subbi') {
+          const subbiPattern = /^subbi\s+[0-9a-f]{1,2}h?$/i;
+          if (!subbiPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: SUBBI requires a valid 8-bit hexadecimal immediate value (e.g. SUBBI 2FH)`,
+              type: 'syntax'
+            });
           }
+        }
 
-          // === SETC === (set carry)
-          if (instructionType === 'setc') {
-            const setcPattern = /^setc$/i;
-            if (!setcPattern.test(instruction)) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: SETC does not take any arguments`,
-                type: 'syntax'
-              });
-            }
+        // === SETC === (set carry)
+        if (instructionType === 'setc') {
+          const setcPattern = /^setc$/i;
+          if (!setcPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: SETC does not take any arguments`,
+              type: 'syntax'
+            });
           }
+        }
 
-                    
-          // Add LDA validation (after the ADD validation):
-          // === LDA === (load from memory address: LDA 2000H)
-          // In validateInstructions function, enhance LDA/STA validation:
-          if (instructionType === 'lda') {
-            // Follow the same strict format used in src/functions/lda.ts: require an H suffix
-            const ldaPattern = /^lda\s+([0-9a-f]{1,4})h$/i;
-            const match = ldaPattern.exec(instruction);
-            if (!match) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: Invalid LDA instruction format. Use: LDA XXXXH`,
-                type: 'syntax'
-              });
-            } else {
-              // Validate that the parsed address fits in 16 bits
-              const addr = parseInt(match[1], 16);
-              if (Number.isNaN(addr) || addr > 0xffff) {
-                validationErrors.push({
-                  line: index,
-                  message: `Line ${index + 1}: LDA address out of range (0000-FFFF)`,
-                  type: 'syntax'
-                });
-              }
-            }
-          }
 
-          if (instructionType === 'sta') {
-            // Follow the same strict format used in src/functions/sta.ts: require an H suffix
-            const staPattern = /^sta\s+([0-9a-f]{1,4})h$/i;
-            const match = staPattern.exec(instruction);
-            if (!match) {
+        // Add LDA validation (after the ADD validation):
+        // === LDA === (load from memory address: LDA 2000H)
+        // In validateInstructions function, enhance LDA/STA validation:
+        if (instructionType === 'lda') {
+          // Follow the same strict format used in src/functions/lda.ts: require an H suffix
+          const ldaPattern = /^lda\s+([0-9a-f]{1,4})h$/i;
+          const match = ldaPattern.exec(instruction);
+          if (!match) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Invalid LDA instruction format. Use: LDA XXXXH`,
+              type: 'syntax'
+            });
+          } else {
+            // Validate that the parsed address fits in 16 bits
+            const addr = parseInt(match[1], 16);
+            if (Number.isNaN(addr) || addr > 0xffff) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: Invalid STA instruction format. Use: STA XXXXH`,
+                message: `Line ${index + 1}: LDA address out of range (0000-FFFF)`,
                 type: 'syntax'
               });
-            } else {
-              // Validate that the parsed address fits in 16 bits
-              const addr = parseInt(match[1], 16);
-              if (Number.isNaN(addr) || addr > 0xffff) {
-                validationErrors.push({
-                  line: index,
-                  message: `Line ${index + 1}: STA address out of range (0000-FFFF)`,
-                  type: 'syntax'
-                });
-              }
             }
           }
+        }
 
-          // === LDAX === (load accumulator from memory via register pair: LDAX B or LDAX D)
-          if (instructionType === 'ldax') {
-            const ldaxPattern = /^ldax\s+(b|d)$/i;
-            if (!ldaxPattern.test(instruction)) {
+        if (instructionType === 'sta') {
+          // Follow the same strict format used in src/functions/sta.ts: require an H suffix
+          const staPattern = /^sta\s+([0-9a-f]{1,4})h$/i;
+          const match = staPattern.exec(instruction);
+          if (!match) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: Invalid STA instruction format. Use: STA XXXXH`,
+              type: 'syntax'
+            });
+          } else {
+            // Validate that the parsed address fits in 16 bits
+            const addr = parseInt(match[1], 16);
+            if (Number.isNaN(addr) || addr > 0xffff) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: LDAX requires a valid register pair (B or D)`,
+                message: `Line ${index + 1}: STA address out of range (0000-FFFF)`,
                 type: 'syntax'
               });
             }
           }
+        }
 
-          // === STAX === (store accumulator into memory via register pair: STAX B or STAX D)
-          if (instructionType === 'stax') {
-            const staxPattern = /^stax\s+(b|d)$/i;
-            if (!staxPattern.test(instruction)) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: STAX requires a valid register pair (B or D)`,
-                type: 'syntax'
-              });
-            }
+        // === LDAX === (load accumulator from memory via register pair: LDAX B or LDAX D)
+        if (instructionType === 'ldax') {
+          const ldaxPattern = /^ldax\s+(b|d)$/i;
+          if (!ldaxPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: LDAX requires a valid register pair (B or D)`,
+              type: 'syntax'
+            });
           }
+        }
 
-
-
-          // === LXI === (load 16-bit address into register pair: LXI H, 2000H)
-          if (instructionType === 'lxi') {
-            const lxiPattern = /^lxi\s+(b|d|h),\s*[0-9a-f]{1,4}h$/i;
-            if (!lxiPattern.test(instruction)) {
-              validationErrors.push({
-                line: index,
-                message: `Line ${index + 1}: LXI requires a valid register pair (B, D, H) and a 16-bit hex address (e.g., LXI H, 2000H)`,
-                type: 'syntax'
-              });
-            }
+        // === STAX === (store accumulator into memory via register pair: STAX B or STAX D)
+        if (instructionType === 'stax') {
+          const staxPattern = /^stax\s+(b|d)$/i;
+          if (!staxPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: STAX requires a valid register pair (B or D)`,
+              type: 'syntax'
+            });
           }
+        }
+
+
+
+        // === LXI === (load 16-bit address into register pair: LXI H, 2000H)
+        if (instructionType === 'lxi') {
+          const lxiPattern = /^lxi\s+(b|d|h),\s*[0-9a-f]{1,4}h$/i;
+          if (!lxiPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: LXI requires a valid register pair (B, D, H) and a 16-bit hex address (e.g., LXI H, 2000H)`,
+              type: 'syntax'
+            });
+          }
+        }
 
         // === MVI === (register + immediate hex: MVI A,05H)
         if (instructionType === 'mvi') {
@@ -388,7 +500,7 @@ export default function InstructionInput() {
           }
         }
 
-      // === AND === (one register: AND A)
+        // === AND === (one register: AND A)
         if (instructionType === 'and') {
           // More flexible parsing for AND that handles cases with and without spaces
           const andPattern = /^and\s*[abcdehlm]$/i;
@@ -466,6 +578,18 @@ export default function InstructionInput() {
           }
         }
 
+        // === TEST === (Raspberry Pi test: TEST)
+        if (instructionType === 'test') {
+          const testPattern = /^test$/i;
+          if (!testPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: TEST takes no operands`,
+              type: 'syntax'
+            });
+          }
+        }
+
         // === NOT === (no operands: NOT)
         if (instructionType === 'not') {
           // More flexible parsing for NOT that handles cases with and without spaces
@@ -491,140 +615,140 @@ export default function InstructionInput() {
             });
           }
         }
-          
-      // ===== JMP ====== (Unconditional Jump)
-      if (instructionType === 'jmp') {
-        const jmpPattern = /^jmp\s+([a-z_][a-z0-9_]*)$/i;
-        const match = jmpPattern.exec(instruction);
-        if (!match) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JMP must be followed by a valid label (e.g., JMP LOOP)`,
-            type: 'syntax'
-          });
-        } else {
-          const label = match[1];
-          if (!(label in labelMap)) {
-            validationErrors.push({
-              line: index,
-              message: `Line ${index + 1}: Label "${label}" not found`,
-              type: 'invalid_instruction'
-            });
-          }
-        }
-      }
 
-      // ===== JNZ ====== (Jump if result not zero)
-      if (instructionType === 'jnz') {
-        const jnzPattern = /^jnz\s+([a-z_][a-z0-9_]*)$/i;
-        const match = jnzPattern.exec(instruction);
-        if (!match) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JNZ must be followed by a valid label (e.g., JNZ LOOP)`,
-            type: 'syntax'
-          });
-        } else {
-          const label = match[1];
-          if (!(label in labelMap)) {
+        // ===== JMP ====== (Unconditional Jump)
+        if (instructionType === 'jmp') {
+          const jmpPattern = /^jmp\s+([a-z_][a-z0-9_]*)$/i;
+          const match = jmpPattern.exec(instruction);
+          if (!match) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: Label "${label}" not found`,
-              type: 'invalid_instruction'
+              message: `Line ${index + 1}: JMP must be followed by a valid label (e.g., JMP LOOP)`,
+              type: 'syntax'
             });
+          } else {
+            const label = match[1];
+            if (!(label in labelMap)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: Label "${label}" not found`,
+                type: 'invalid_instruction'
+              });
+            }
           }
         }
-      }
 
-      // ===== JZ ====== (Jump if result zero)
-      if (instructionType === 'jz') {
-        const jzPattern = /^jz\s+([a-z_][a-z0-9_]*)$/i;
-        const match = jzPattern.exec(instruction);
-        if (!match) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JZ must be followed by a valid label (e.g., JZ LOOP)`,
-            type: 'syntax'
-          });
-        } else {
-          const label = match[1];
-          if (!(label in labelMap)) {
+        // ===== JNZ ====== (Jump if result not zero)
+        if (instructionType === 'jnz') {
+          const jnzPattern = /^jnz\s+([a-z_][a-z0-9_]*)$/i;
+          const match = jnzPattern.exec(instruction);
+          if (!match) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: Label "${label}" not found`,
-              type: 'invalid_instruction'
+              message: `Line ${index + 1}: JNZ must be followed by a valid label (e.g., JNZ LOOP)`,
+              type: 'syntax'
             });
+          } else {
+            const label = match[1];
+            if (!(label in labelMap)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: Label "${label}" not found`,
+                type: 'invalid_instruction'
+              });
+            }
           }
         }
-      }
 
-      // ===== JNC ====== (Jump if no carry)
-      if (instructionType === 'jnc') {
-        const jncPattern = /^jnc\s+([a-z_][a-z0-9_]*)$/i;
-        const match = jncPattern.exec(instruction);
-        if (!match) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JNC must be followed by a valid label (e.g., JNC LOOP)`,
-            type: 'syntax'
-          });
-        } else {
-          const label = match[1];
-          if (!(label in labelMap)) {
+        // ===== JZ ====== (Jump if result zero)
+        if (instructionType === 'jz') {
+          const jzPattern = /^jz\s+([a-z_][a-z0-9_]*)$/i;
+          const match = jzPattern.exec(instruction);
+          if (!match) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: Label "${label}" not found`,
-              type: 'invalid_instruction'
+              message: `Line ${index + 1}: JZ must be followed by a valid label (e.g., JZ LOOP)`,
+              type: 'syntax'
             });
+          } else {
+            const label = match[1];
+            if (!(label in labelMap)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: Label "${label}" not found`,
+                type: 'invalid_instruction'
+              });
+            }
           }
         }
-      }
 
-      //Raven
-            // === JP === (Jump if Positive)
-      if (instructionType === 'jp') {
-        const jpPattern = /^jp\s+([a-z_][a-z0-9_]*)$/i;
-        const match = jpPattern.exec(instruction);
-        if (!match) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JP must be followed by a valid label (e.g., JP LOOP)`,
-            type: 'syntax'
-          });
-        } else {
-          const label = match[1];
-          if (!(label in labelMap)) {
+        // ===== JNC ====== (Jump if no carry)
+        if (instructionType === 'jnc') {
+          const jncPattern = /^jnc\s+([a-z_][a-z0-9_]*)$/i;
+          const match = jncPattern.exec(instruction);
+          if (!match) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: Label "${label}" not found`,
-              type: 'invalid_instruction'
+              message: `Line ${index + 1}: JNC must be followed by a valid label (e.g., JNC LOOP)`,
+              type: 'syntax'
             });
+          } else {
+            const label = match[1];
+            if (!(label in labelMap)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: Label "${label}" not found`,
+                type: 'invalid_instruction'
+              });
+            }
           }
         }
-      }
 
-      // === JM === (Jump if Minus)
-      if (instructionType === 'jm') {
-        const jmPattern = /^jm\s+([a-z_][a-z0-9_]*)$/i;
-        const match = jmPattern.exec(instruction);
-        if (!match) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JM must be followed by a valid label (e.g., JM LOOP)`,
-            type: 'syntax'
-          });
-        } else {
-          const label = match[1];
-          if (!(label in labelMap)) {
+        //Raven
+        // === JP === (Jump if Positive)
+        if (instructionType === 'jp') {
+          const jpPattern = /^jp\s+([a-z_][a-z0-9_]*)$/i;
+          const match = jpPattern.exec(instruction);
+          if (!match) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: Label "${label}" not found`,
-              type: 'invalid_instruction'
+              message: `Line ${index + 1}: JP must be followed by a valid label (e.g., JP LOOP)`,
+              type: 'syntax'
             });
+          } else {
+            const label = match[1];
+            if (!(label in labelMap)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: Label "${label}" not found`,
+                type: 'invalid_instruction'
+              });
+            }
           }
         }
-      }
-        
+
+        // === JM === (Jump if Minus)
+        if (instructionType === 'jm') {
+          const jmPattern = /^jm\s+([a-z_][a-z0-9_]*)$/i;
+          const match = jmPattern.exec(instruction);
+          if (!match) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: JM must be followed by a valid label (e.g., JM LOOP)`,
+              type: 'syntax'
+            });
+          } else {
+            const label = match[1];
+            if (!(label in labelMap)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: Label "${label}" not found`,
+                type: 'invalid_instruction'
+              });
+            }
+          }
+        }
+
         // Check MOV instruction format
         if (instructionType === 'mov') {
           const parts = instruction.split(' ');
@@ -636,41 +760,41 @@ export default function InstructionInput() {
             });
           }
         }
-      
 
-      // === JC === (Jump if Carry)
-      if (instructionType === 'jc') {
-        const jcPattern = /^jc\s+([a-z_][a-z0-9_]*)$/i;
-        const match = jcPattern.exec(instruction);
-        if (!match) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: JC must be followed by a valid label (e.g., JC LOOP)`,
-            type: 'syntax'
-          });
-        } else {
-          const label = match[1];
-          if (!(label in labelMap)) {
+
+        // === JC === (Jump if Carry)
+        if (instructionType === 'jc') {
+          const jcPattern = /^jc\s+([a-z_][a-z0-9_]*)$/i;
+          const match = jcPattern.exec(instruction);
+          if (!match) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: Label "${label}" not found`,
-              type: 'invalid_instruction'
+              message: `Line ${index + 1}: JC must be followed by a valid label (e.g., JC LOOP)`,
+              type: 'syntax'
+            });
+          } else {
+            const label = match[1];
+            if (!(label in labelMap)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: Label "${label}" not found`,
+                type: 'invalid_instruction'
+              });
+            }
+          }
+        }
+
+        if (instructionType === 'subi') {
+          const subiPattern = /^subi\s+[0-9a-f]{2}h$/i;
+          if (!subiPattern.test(instruction)) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: SUBI immediate must be two hex digits followed by 'H' (e.g., SUBI 05H)`,
+              type: 'syntax'
             });
           }
         }
-      }
-
-        if (instructionType === 'subi') {
-        const subiPattern = /^subi\s+[0-9a-f]{2}h$/i;
-        if (!subiPattern.test(instruction)) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: SUBI immediate must be two hex digits followed by 'H' (e.g., SUBI 05H)`,
-            type: 'syntax'
-          });
-        }
-      }
-      if (instructionType === 'muli') {
+        if (instructionType === 'muli') {
           const muliPattern = /^muli\s+[0-9a-f]{2}h$/i;
           if (!muliPattern.test(instruction)) {
             validationErrors.push({
@@ -681,144 +805,144 @@ export default function InstructionInput() {
           }
         }
 
-      // === INR === (Increment Register)
-      if (instructionType === 'inr') {
-        const parts = instruction.split(/\s+/);
-        if (parts.length < 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: INR requires a register`,
-            type: 'syntax'
-          });
-        } else if (parts.length > 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: INR has too many operands`,
-            type: 'syntax'
-          });
-        } else {
-          // Check if the operand contains a comma (indicating multiple operands)
-          if (parts[1].includes(',')) {
+        // === INR === (Increment Register)
+        if (instructionType === 'inr') {
+          const parts = instruction.split(/\s+/);
+          if (parts.length < 2) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: INR only takes one register (e.g., INR A)`,
+              message: `Line ${index + 1}: INR requires a register`,
+              type: 'syntax'
+            });
+          } else if (parts.length > 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: INR has too many operands`,
               type: 'syntax'
             });
           } else {
-            const inrPattern = /^inr\s+[abcdehlm]$/i;
-            if (!inrPattern.test(instruction)) {
+            // Check if the operand contains a comma (indicating multiple operands)
+            if (parts[1].includes(',')) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: INR requires a valid register (A,B,C,D,E,H,L,M)`,
+                message: `Line ${index + 1}: INR only takes one register (e.g., INR A)`,
+                type: 'syntax'
+              });
+            } else {
+              const inrPattern = /^inr\s+[abcdehlm]$/i;
+              if (!inrPattern.test(instruction)) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: INR requires a valid register (A,B,C,D,E,H,L,M)`,
+                  type: 'syntax'
+                });
+              }
+            }
+          }
+        }
+
+        // === DCR === (Decrement Register)
+        if (instructionType === 'dcr') {
+          const parts = instruction.split(/\s+/);
+          if (parts.length < 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DCR requires a register`,
+              type: 'syntax'
+            });
+          } else if (parts.length > 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: DCR has too many operands`,
+              type: 'syntax'
+            });
+          } else {
+            // Check if the operand contains a comma (indicating multiple operands)
+            if (parts[1].includes(',')) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: DCR only takes one register (e.g., DCR A)`,
+                type: 'syntax'
+              });
+            } else {
+              const dcrPattern = /^dcr\s+[abcdehlm]$/i;
+              if (!dcrPattern.test(instruction)) {
+                validationErrors.push({
+                  line: index,
+                  message: `Line ${index + 1}: DCR requires a valid register (A,B,C,D,E,H,L,M)`,
+                  type: 'syntax'
+                });
+              }
+            }
+          }
+        }
+
+        // === INX === (Increment Register Pair)
+        if (instructionType === 'inx') {
+          const parts = instruction.split(/\s+/);
+          if (parts.length !== 2) {
+            validationErrors.push({
+              line: index,
+              message: `Line ${index + 1}: INX requires exactly one register-pair operand (B, D or H)`,
+              type: 'syntax'
+            });
+          } else {
+            const inxPattern = /^inx\s+[bdh]$/i;
+            if (!inxPattern.test(instruction)) {
+              validationErrors.push({
+                line: index,
+                message: `Line ${index + 1}: INX requires a valid register pair (B, D or H) (e.g., INX H)`,
                 type: 'syntax'
               });
             }
           }
         }
-      }
 
-      // === DCR === (Decrement Register)
-      if (instructionType === 'dcr') {
-        const parts = instruction.split(/\s+/);
-        if (parts.length < 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: DCR requires a register`,
-            type: 'syntax'
-          });
-        } else if (parts.length > 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: DCR has too many operands`,
-            type: 'syntax'
-          });
-        } else {
-          // Check if the operand contains a comma (indicating multiple operands)
-          if (parts[1].includes(',')) {
+        // === DCX === (Decrement Register Pair)
+        if (instructionType === 'dcx') {
+          const parts = instruction.split(/\s+/);
+          if (parts.length !== 2) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: DCR only takes one register (e.g., DCR A)`,
+              message: `Line ${index + 1}: DCX requires exactly one register-pair operand (B, D or H)`,
               type: 'syntax'
             });
           } else {
-            const dcrPattern = /^dcr\s+[abcdehlm]$/i;
-            if (!dcrPattern.test(instruction)) {
+            const dcxPattern = /^dcx\s+[bdh]$/i;
+            if (!dcxPattern.test(instruction)) {
               validationErrors.push({
                 line: index,
-                message: `Line ${index + 1}: DCR requires a valid register (A,B,C,D,E,H,L,M)`,
+                message: `Line ${index + 1}: DCX requires a valid register pair (B, D or H) (e.g., DCX H)`,
                 type: 'syntax'
               });
             }
           }
         }
-      }
 
-      // === INX === (Increment Register Pair)
-      if (instructionType === 'inx') {
-        const parts = instruction.split(/\s+/);
-        if (parts.length !== 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: INX requires exactly one register-pair operand (B, D or H)`,
-            type: 'syntax'
-          });
-        } else {
-          const inxPattern = /^inx\s+[bdh]$/i;
-          if (!inxPattern.test(instruction)) {
+        // === CPI === (Compare Immediate)
+        if (instructionType === 'cpi') {
+          const cpiPattern = /^cpi\s+[0-9a-f]{2}h$/i;
+          if (!cpiPattern.test(instruction)) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: INX requires a valid register pair (B, D or H) (e.g., INX H)`,
+              message: `Line ${index + 1}: CPI immediate must be two hex digits followed by 'H' (e.g., CPI 05H)`,
               type: 'syntax'
             });
           }
         }
-      }
 
-      // === DCX === (Decrement Register Pair)
-      if (instructionType === 'dcx') {
-        const parts = instruction.split(/\s+/);
-        if (parts.length !== 2) {
-          validationErrors.push({
-            line: index,
-            message: `Line ${index + 1}: DCX requires exactly one register-pair operand (B, D or H)`,
-            type: 'syntax'
-          });
-        } else {
-          const dcxPattern = /^dcx\s+[bdh]$/i;
-          if (!dcxPattern.test(instruction)) {
+        // === CMP === (Compare Register)
+        if (instructionType === 'cmp') {
+          const cmpPattern = /^cmp\s+[abcdehlm]$/i;
+          if (!cmpPattern.test(instruction)) {
             validationErrors.push({
               line: index,
-              message: `Line ${index + 1}: DCX requires a valid register pair (B, D or H) (e.g., DCX H)`,
+              message: `Line ${index + 1}: CMP requires a valid register (A,B,C,D,E,H,L) (e.g., CMP B)`,
               type: 'syntax'
             });
           }
         }
-      }
-
-      // === CPI === (Compare Immediate)
-if (instructionType === 'cpi') {
-  const cpiPattern = /^cpi\s+[0-9a-f]{2}h$/i;
-  if (!cpiPattern.test(instruction)) {
-    validationErrors.push({
-      line: index,
-      message: `Line ${index + 1}: CPI immediate must be two hex digits followed by 'H' (e.g., CPI 05H)`,
-      type: 'syntax'
-    });
-  }
-}
-
-// === CMP === (Compare Register)
-if (instructionType === 'cmp') {
-  const cmpPattern = /^cmp\s+[abcdehlm]$/i;
-  if (!cmpPattern.test(instruction)) {
-    validationErrors.push({
-      line: index,
-      message: `Line ${index + 1}: CMP requires a valid register (A,B,C,D,E,H,L) (e.g., CMP B)`,
-      type: 'syntax'
-    });
-  }
-}
-      //Raven
+        //Raven
 
         if (instructionType === 'mul') {
           // MUL reg (reg must be one of A, B, C, D, E, H, L)
@@ -855,7 +979,7 @@ if (instructionType === 'cmp') {
             });
           }
         }
-        
+
         // === ADDI === (Add Immediate)
         if (instructionType === 'addi') {
           const addiPattern = /^addi\s+[0-9a-f]{2}h$/i;
@@ -867,7 +991,7 @@ if (instructionType === 'cmp') {
             });
           }
         }
-        
+
         // === SUB === (Subtract)
         if (instructionType === 'sub') {
           const subPattern = /^sub\s+[abcdehlm]$/i;
@@ -879,7 +1003,7 @@ if (instructionType === 'cmp') {
             });
           }
         }
-        
+
         // === SUBB === (Subtract with Borrow)
         if (instructionType === 'subb') {
           const subbPattern = /^subb\s+[abcdehlm]$/i;
@@ -894,7 +1018,7 @@ if (instructionType === 'cmp') {
       }
 
     });
-    
+
     return validationErrors;
   };
 
@@ -931,25 +1055,36 @@ if (instructionType === 'cmp') {
         continue;
       }
 
-            // Inline comment using // or anything after first ;
-            const inlineSlashIdx = line.indexOf('//');
-            const semiIdx = line.indexOf('/');
-            const hasInlineSlash = inlineSlashIdx >= 0;
-            const hasInlineSemi = semiIdx >= 0;
-      
-            if (hasInlineSlash || hasInlineSemi) {
-              const splitIdx = Math.min(
-                hasInlineSlash ? inlineSlashIdx : Number.POSITIVE_INFINITY,
-                hasInlineSemi ? semiIdx : Number.POSITIVE_INFINITY
-              );
-              const codePart = line.slice(0, splitIdx);
-              const commentPart = line.slice(splitIdx);
-        const codeHtml = escapeHtml(codePart).replace(/ /g, '&nbsp;');
+      // Inline comment using // or anything after first ;
+      const inlineSlashIdx = line.indexOf('//');
+      const semiIdx = line.indexOf('/');
+      const hasInlineSlash = inlineSlashIdx >= 0;
+      const hasInlineSemi = semiIdx >= 0;
+
+      if (hasInlineSlash || hasInlineSemi) {
+        const splitIdx = Math.min(
+          hasInlineSlash ? inlineSlashIdx : Number.POSITIVE_INFINITY,
+          hasInlineSemi ? semiIdx : Number.POSITIVE_INFINITY
+        );
+        const codePart = line.slice(0, splitIdx);
+        const commentPart = line.slice(splitIdx);
+        let codeHtml = escapeHtml(codePart).replace(/ /g, '&nbsp;');
+
+        // Add suggestion if applicable
+        if (suggestion && i === suggestion.line) {
+          codeHtml += `<span class="opacity-40">${escapeHtml(suggestion.text).replace(/ /g, '&nbsp;')}</span>`;
+        }
+
         const commentHtml = `<span class=\"${commentClass}\">${escapeHtml(commentPart)}</span>`;
-        htmlLines.push(codeHtml + commentHtml);
+        htmlLines.push(leadingSpaces + codeHtml + commentHtml);
       } else {
         // No comment in this line
-        htmlLines.push(escapeHtml(line).replace(/ /g, '&nbsp;'));
+        let codeHtml = escapeHtml(trimmed).replace(/ /g, '&nbsp;');
+        // Add suggestion if applicable
+        if (suggestion && i === suggestion.line) {
+          codeHtml += `<span class="opacity-40 italic pointer-events-none">${escapeHtml(suggestion.text).replace(/ /g, '&nbsp;')}</span>`;
+        }
+        htmlLines.push(leadingSpaces + codeHtml);
       }
     }
     return htmlLines.join('<br/>');
@@ -990,6 +1125,43 @@ if (instructionType === 'cmp') {
     };
   }, [instructions, setHasUnsavedChanges]);
 
+  useEffect(() => {
+    const handleApplyQuickFix = (event: CustomEvent) => {
+      const error = event.detail as ValidationError;
+      if (error.type === 'semicolon') {
+        setInstructions(prev => {
+          const lines = prev.split('\n');
+          if (lines[error.line] && !lines[error.line].trim().endsWith(';')) {
+            lines[error.line] = lines[error.line].trim() + ';';
+            return lines.join('\n');
+          }
+          return prev;
+        });
+        setHasUnsavedChanges(true);
+      }
+    };
+    window.addEventListener('applyQuickFix', handleApplyQuickFix as EventListener);
+
+    // highlight error line when clicked in error panel
+    const handleHighlightErrorLine = (event: CustomEvent) => {
+      const index = event.detail as number;
+      if (textareaRef.current) {
+        const linesUpToIndex = instructions.split('\n').slice(0, index).join('\n');
+        const approxCharIndex = linesUpToIndex.length + 1;
+        textareaRef.current.selectionStart = approxCharIndex;
+        textareaRef.current.selectionEnd = approxCharIndex;
+        textareaRef.current.focus();
+        textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    };
+    window.addEventListener('highlightErrorLine', handleHighlightErrorLine as EventListener);
+
+    return () => {
+      window.removeEventListener('applyQuickFix', handleApplyQuickFix as EventListener);
+      window.removeEventListener('highlightErrorLine', handleHighlightErrorLine as EventListener);
+    };
+  }, [instructions, setHasUnsavedChanges]);
+
   // Sync overlay scroll with textarea scroll
   const handleScroll = () => {
     if (textareaRef.current && overlayRef.current) {
@@ -998,8 +1170,8 @@ if (instructionType === 'cmp') {
     }
   };
 
-   // Add // to the start of each selected line (or current line if none selected)
-   const commentSelection = () => {
+  // Add // to the start of each selected line (or current line if none selected)
+  const commentSelection = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
@@ -1021,37 +1193,37 @@ if (instructionType === 'cmp') {
     const linesToComment = target.split('\n');
 
     const commentedLines = linesToComment.map((line) => {
-       // Preserve leading spaces, then insert //
-       const leadingSpacesMatch = line.match(/^\s*/);
-       const leading = leadingSpacesMatch ? leadingSpacesMatch[0] : '';
-       const rest = line.slice(leading.length);
-       // If already a full-line comment starting with //, leave as is
-       if (rest.startsWith('//')) return line;
-       return `${leading}//${rest}`;
-     });
- 
-     const updatedTarget = commentedLines.join('\n');
-     const updatedText = before + updatedTarget + after;
-     setInstructions(updatedText);
-     setHasUnsavedChanges(true);
- 
-     // Adjust selection to cover the same logical region after inserting //
-     // Each affected line (including possibly empty) got 2 extra chars before its content
-     const affectedLinesCount = linesToComment.length;
-     const selectionStartShift = 2; // caret is at start line; after "//" insertion
-     const selectionEndShift = 2 * affectedLinesCount;
- 
-     // If there was no selection (caret within a single line), keep caret after the inserted //
-     if (selectionStart === selectionEnd) {
-       const newCaret = selectionStart + selectionStartShift;
-       setTimeout(() => {
-         textarea.selectionStart = textarea.selectionEnd = newCaret;
-       }, 0);
-     } else {
-       // Expand selection by the number of inserted characters
-       const newStart = selectionStart + selectionStartShift;
-       const newEnd = selectionEnd + selectionEndShift;
-       setTimeout(() => {
+      // Preserve leading spaces, then insert //
+      const leadingSpacesMatch = line.match(/^\s*/);
+      const leading = leadingSpacesMatch ? leadingSpacesMatch[0] : '';
+      const rest = line.slice(leading.length);
+      // If already a full-line comment starting with //, leave as is
+      if (rest.startsWith('//')) return line;
+      return `${leading}//${rest}`;
+    });
+
+    const updatedTarget = commentedLines.join('\n');
+    const updatedText = before + updatedTarget + after;
+    setInstructions(updatedText);
+    setHasUnsavedChanges(true);
+
+    // Adjust selection to cover the same logical region after inserting //
+    // Each affected line (including possibly empty) got 2 extra chars before its content
+    const affectedLinesCount = linesToComment.length;
+    const selectionStartShift = 2; // caret is at start line; after "//" insertion
+    const selectionEndShift = 2 * affectedLinesCount;
+
+    // If there was no selection (caret within a single line), keep caret after the inserted //
+    if (selectionStart === selectionEnd) {
+      const newCaret = selectionStart + selectionStartShift;
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = newCaret;
+      }, 0);
+    } else {
+      // Expand selection by the number of inserted characters
+      const newStart = selectionStart + selectionStartShift;
+      const newEnd = selectionEnd + selectionEndShift;
+      setTimeout(() => {
         textarea.selectionStart = newStart;
         textarea.selectionEnd = newEnd;
       }, 0);
@@ -1059,8 +1231,29 @@ if (instructionType === 'cmp') {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-     // Ctrl+/ to comment selected lines
-     if (e.ctrlKey && (e.key === '/' || e.key === '?')) {
+    // Tab or Right Arrow to accept suggestion
+    if ((e.key === 'Tab' || e.key === 'ArrowRight') && suggestion) {
+      e.preventDefault();
+      const cursorLineIdx = suggestion.line;
+      const linesArray = instructions.split('\n');
+      linesArray[cursorLineIdx] = linesArray[cursorLineIdx] + suggestion.text;
+      const newText = linesArray.join('\n');
+      setInstructions(newText);
+      setHasUnsavedChanges(true);
+      setSuggestion(null);
+      // Move cursor to end of suggestion
+      setTimeout(() => {
+        if (textareaRef.current) {
+          const newCursorPos = linesArray.slice(0, cursorLineIdx + 1).join('\n').length;
+          textareaRef.current.selectionStart = newCursorPos;
+          textareaRef.current.selectionEnd = newCursorPos;
+        }
+      }, 0);
+      return;
+    }
+
+    // Ctrl+/ to comment selected lines
+    if (e.ctrlKey && (e.key === '/' || e.key === '?')) {
       e.preventDefault();
       commentSelection();
       return;
@@ -1071,13 +1264,13 @@ if (instructionType === 'cmp') {
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
 
-      const indent = '  '; 
+      const indent = '  ';
       const updatedValue =
         instructions.substring(0, start) + indent + instructions.substring(end);
 
       setInstructions(updatedValue);
 
-      
+
       setTimeout(() => {
         textarea.selectionStart = textarea.selectionEnd = start + indent.length;
       }, 0);
@@ -1086,166 +1279,33 @@ if (instructionType === 'cmp') {
 
   return (
     <div className={`h-full ${isDark ? 'bg-[#121212] text-white' : 'bg-neutral-100 text-neutral-900'} font-mono text-lg overflow-y-auto flex flex-col`}>
-      {/* Enhanced Error Display */}
-      {errors.length > 0 && (
-        <div className={`${isDark ? 'border-b border-gray-700' : 'border-b border-neutral-300'}`}>
-          {/* Error Panel Header */}
-          <div 
-            className={`flex items-center justify-between p-3 cursor-pointer transition-colors ${isDark ? 'bg-gray-800/50 hover:bg-gray-800/70' : 'bg-neutral-200 hover:bg-neutral-300'}`}
-            onClick={() => setIsErrorPanelExpanded(!isErrorPanelExpanded)}
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-red-400" />
-                <span className="font-semibold text-red-400">
-                  {errors.length} Error{errors.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-              <div className={`flex items-center gap-1 text-sm ${isDark ? 'text-gray-400' : 'text-neutral-600'}`}>
-                {sortedErrors.filter(e => e.type === 'semicolon').length > 0 && (
-                  <span className="px-2 py-1 bg-orange-900/30 text-orange-300 rounded text-xs">
-                    {sortedErrors.filter(e => e.type === 'semicolon').length} Missing Semicolon
-                  </span>
-                )}
-                {sortedErrors.filter(e => e.type === 'syntax').length > 0 && (
-                  <span className="px-2 py-1 bg-red-900/30 text-red-300 rounded text-xs">
-                    {sortedErrors.filter(e => e.type === 'syntax').length} Syntax
-                  </span>
-                )}
-                {sortedErrors.filter(e => e.type === 'invalid_instruction').length > 0 && (
-                  <span className="px-2 py-1 bg-red-900/40 text-red-200 rounded text-xs">
-                    {sortedErrors.filter(e => e.type === 'invalid_instruction').length} Invalid
-                  </span>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {isErrorPanelExpanded ? (
-                <ChevronUp className="h-4 w-4 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-4 w-4 text-gray-400" />
-              )}
-            </div>
-          </div>
-
-          {/* Expanded Error Details */}
-          {isErrorPanelExpanded && (
-            <div className={`max-h-64 overflow-y-auto ${isDark ? 'bg-gray-900/30' : 'bg-neutral-100'}`}>
-              {sortedErrors.map((error, index) => (
-                <div 
-                  key={index}
-                  className={`border-l-4 ${getErrorColor(error.type)} p-3 hover:bg-gray-800/30 transition-colors cursor-pointer`}
-                  onClick={() => {
-                    setSelectedError(selectedError === index ? null : index);
-                    // Scroll to the error line
-                    if (textareaRef.current) {
-                      const linesUpToIndex = instructions.split('\n').slice(0, error.line).join('\n');
-                      const approxCharIndex = linesUpToIndex.length + 1;
-                      textareaRef.current.selectionStart = approxCharIndex;
-                      textareaRef.current.selectionEnd = approxCharIndex;
-                      textareaRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                  }}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3 flex-1">
-                      {getErrorIcon(error.type)}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-white">
-                            Line {error.line + 1}
-                          </span>
-                          <span className={`text-xs px-2 py-1 rounded ${isDark ? 'bg-gray-700 text-gray-300' : 'bg-neutral-200 text-neutral-700'}`}>
-                            {error.type === 'semicolon' ? 'Missing Semicolon' : 
-                             error.type === 'syntax' ? 'Syntax Error' : 'Invalid Instruction'}
-                          </span>
-                        </div>
-                        <p className={`${isDark ? 'text-gray-300' : 'text-neutral-700'} text-sm`}>{error.message}</p>
-                        
-                        {/* Quick Fix Suggestion */}
-                        {getQuickFix(error) && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <Lightbulb className="h-3 w-3 text-yellow-400" />
-                            <span className={`text-xs ${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>{getQuickFix(error)}</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                applyQuickFix(error);
-                              }}
-                              className={`text-xs px-2 py-1 rounded transition-colors ${isDark ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : 'bg-yellow-200 hover:bg-yellow-300 text-yellow-900'}`}
-                            >
-                              Fix
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-neutral-500'} ml-2`}>
-                      {selectedError === index ? 'Hide' : 'Show'} Details
-                    </div>
-                  </div>
-                  
-                  {/* Expanded Error Details */}
-                  {selectedError === index && (
-                    <div className={`mt-3 pl-7 border-l ${isDark ? 'border-gray-600' : 'border-neutral-300'}`}>
-                      <div className={`text-xs ${isDark ? 'text-gray-400' : 'text-neutral-600'}`}>
-                        <div className="mb-1">
-                          <strong>Current line:</strong> <code className={`${isDark ? 'bg-gray-800' : 'bg-neutral-200'} px-1 rounded`}>{lines[error.line] || '(empty)'}</code>
-                        </div>
-                        {error.type === 'semicolon' && (
-                          <div className={`${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>
-                            💡 <strong>Tip:</strong> All instructions must end with a semicolon (;)
-                          </div>
-                        )}
-                        {error.type === 'syntax' && (
-                          <div className={`${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
-                            💡 <strong>Tip:</strong> Check the instruction format and operands
-                          </div>
-                        )}
-                        {error.type === 'invalid_instruction' && (
-                          <div className={`${isDark ? 'text-purple-300' : 'text-purple-700'}`}>
-                            💡 <strong>Tip:</strong> Use the instruction reference (ℹ️ icon) to see valid instructions
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      
       <div className="flex flex-row flex-1">
         <div className={`${isDark ? 'bg-[#1f1f1f] text-gray-400' : 'bg-neutral-200 text-neutral-600'} px-2 py-2 text-right select-none flex-shrink-0`}>
           {lines.map((_, index) => {
             const isActive = index === highlightedLine;
             const lineError = errors.find(e => e.line === index);
             const errorType = lineError?.type;
-            
+
             return (
               <div
                 key={index}
-                className={`leading-[3rem] relative ${
-                  isActive ? (isDark ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : 'bg-blue-100 text-blue-900 font-bold border-2 border-blue-300') : ''
-                }`}
+                className={`leading-[3rem] relative ${isActive ? (isDark ? 'bg-blue-500 text-white font-bold shadow-lg border-2 border-blue-300' : 'bg-blue-100 text-blue-900 font-bold border-2 border-blue-300') : ''
+                  }`}
               >
                 {index + 1}
                 {/* Error indicator dot */}
                 {lineError && (
-                  <div className={`absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 rounded-full ${
-                    errorType === 'semicolon' ? 'bg-orange-400' :
+                  <div className={`absolute -left-1 top-1/2 transform -translate-y-1/2 w-2 h-2 rounded-full ${errorType === 'semicolon' ? 'bg-orange-400' :
                     errorType === 'syntax' ? 'bg-red-400' :
-                    'bg-red-500'
-                  }`} />
+                      'bg-red-500'
+                    }`} />
                 )}
               </div>
             );
           })}
         </div>
 
-<div className="flex-grow relative">
+        <div className="flex-grow relative">
           {/* Syntax-highlight overlay for comments */}
           <div
             ref={overlayRef}
@@ -1259,11 +1319,20 @@ if (instructionType === 'cmp') {
             autoCorrect="off"
             autoCapitalize="off"
             value={instructions}
-                      onChange={(e) => {
-            const newInstructions = e.target.value;
-            setInstructions(newInstructions);
-            setHasUnsavedChanges(true);
-          }}
+            onChange={(e) => {
+              const newInstructions = e.target.value;
+              setInstructions(newInstructions);
+              setHasUnsavedChanges(true);
+              calculateSuggestion(newInstructions, e.target.selectionStart);
+            }}
+            onSelect={(e) => {
+              // Re-calculate to clear if cursor moved
+              if (e.currentTarget.selectionStart !== e.currentTarget.selectionEnd) {
+                setSuggestion(null);
+              } else {
+                calculateSuggestion(instructions, e.currentTarget.selectionStart);
+              }
+            }}
             onKeyDown={handleKeyDown}
             onScroll={handleScroll}
             placeholder="Type your instructions here."
@@ -1272,31 +1341,30 @@ if (instructionType === 'cmp') {
           />
           {/* Highlight overlay for current line */}
           {highlightedLine >= 0 && (
-            <div 
+            <div
               className={`absolute left-2 right-2 z-0 ${isDark ? 'bg-blue-500/20 border-blue-500' : 'bg-blue-200/40 border-blue-400'} border-l-4`}
-              style={{ 
-                top: `calc(${highlightedLine * 3}rem + 0.5rem)`, 
-                height: '3rem' 
+              style={{
+                top: `calc(${highlightedLine * 3}rem + 0.5rem)`,
+                height: '3rem'
               }}
             />
           )}
-          
+
           {/* Error line highlighting */}
           {errors.map((error, index) => {
             const lineError = errors.find(e => e.line === error.line);
             if (!lineError) return null;
-            
+
             return (
-              <div 
+              <div
                 key={`error-${index}`}
-                className={`absolute left-2 right-2 border-l-4 z-0 ${
-                  error.type === 'semicolon' ? (isDark ? 'bg-orange-500/10 border-orange-400' : 'bg-orange-100 border-orange-400') :
+                className={`absolute left-2 right-2 border-l-4 z-0 ${error.type === 'semicolon' ? (isDark ? 'bg-orange-500/10 border-orange-400' : 'bg-orange-100 border-orange-400') :
                   error.type === 'syntax' ? (isDark ? 'bg-red-500/10 border-red-400' : 'bg-red-100 border-red-400') :
-                  (isDark ? 'bg-red-500/15 border-red-500' : 'bg-red-100 border-red-500')
-                }`}
-                style={{ 
-                  top: `calc(${error.line * 3}rem + 0.5rem)`, 
-                  height: '3rem' 
+                    (isDark ? 'bg-red-500/15 border-red-500' : 'bg-red-100 border-red-500')
+                  }`}
+                style={{
+                  top: `calc(${error.line * 3}rem + 0.5rem)`,
+                  height: '3rem'
                 }}
               />
             );

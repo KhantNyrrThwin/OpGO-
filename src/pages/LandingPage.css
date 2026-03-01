@@ -1,0 +1,429 @@
+/* ============================================
+   OpGO- Landing Page — Premium UI
+   ============================================ */
+
+/* ---------- full-screen wrapper ---------- */
+.landing-root {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0a0a1a 0%, #0d1b2a 40%, #1b2838 70%, #0a0a1a 100%);
+    overflow: hidden;
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    z-index: 9999;
+}
+
+/* ---------- animated background grid ---------- */
+.landing-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    animation: gridShift 20s linear infinite;
+}
+
+@keyframes gridShift {
+    0% {
+        background-position: 0 0;
+    }
+
+    100% {
+        background-position: 60px 60px;
+    }
+}
+
+/* ---------- floating particles ---------- */
+.landing-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.particle {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0;
+    animation: particleDrift linear infinite;
+}
+
+.particle--cyan {
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.6), transparent 70%);
+}
+
+.particle--emerald {
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.5), transparent 70%);
+}
+
+.particle--violet {
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.5), transparent 70%);
+}
+
+@keyframes particleDrift {
+    0% {
+        transform: translateY(100vh) scale(0);
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 1;
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(-10vh) scale(1);
+        opacity: 0;
+    }
+}
+
+/* ---------- central glow ---------- */
+.landing-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: glowPulse 4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes glowPulse {
+
+    0%,
+    100% {
+        opacity: 0.6;
+        transform: translate(-50%, -50%) scale(1);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.15);
+    }
+}
+
+/* ---------- content wrapper ---------- */
+.landing-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3rem;
+    animation: fadeSlideUp 0.8s ease-out both;
+    padding: 2rem;
+    max-width: 1100px;
+    width: 100%;
+}
+
+@keyframes fadeSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ---------- logo / brand ---------- */
+.landing-brand {
+    text-align: center;
+    animation: fadeSlideUp 0.8s ease-out 0.15s both;
+}
+
+.landing-logo {
+    font-size: 3.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #38bdf8, #34d399, #a78bfa);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 6s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+.landing-subtitle {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+    color: rgba(148, 163, 184, 0.8);
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+}
+
+/* ---------- question text ---------- */
+.landing-question {
+    font-size: 1.4rem;
+    color: #e2e8f0;
+    font-weight: 500;
+    text-align: center;
+    animation: fadeSlideUp 0.8s ease-out 0.3s both;
+}
+
+.landing-question span {
+    color: #38bdf8;
+    font-weight: 600;
+}
+
+/* ---------- cards container ---------- */
+.landing-cards {
+    display: flex;
+    gap: 2rem;
+    width: 100%;
+    justify-content: center;
+    animation: fadeSlideUp 0.8s ease-out 0.45s both;
+}
+
+/* ---------- individual card ---------- */
+.landing-card {
+    position: relative;
+    flex: 1;
+    max-width: 420px;
+    padding: 2.5rem 2rem;
+    border-radius: 1.25rem;
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    overflow: hidden;
+}
+
+/* card hover edge-glow */
+.landing-card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 1.25rem;
+    padding: 1px;
+    background: linear-gradient(135deg, transparent, transparent);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    transition: background 0.4s ease;
+    pointer-events: none;
+}
+
+/* --- software card specific --- */
+.landing-card--software:hover {
+    transform: translateY(-8px) scale(1.02);
+    border-color: rgba(56, 189, 248, 0.3);
+    box-shadow:
+        0 20px 60px -12px rgba(56, 189, 248, 0.15),
+        0 0 40px rgba(56, 189, 248, 0.06);
+}
+
+.landing-card--software:hover::before {
+    background: linear-gradient(135deg, #38bdf8, #34d399);
+}
+
+/* --- hardware card specific --- */
+.landing-card--hardware {
+    cursor: default;
+    opacity: 0.65;
+}
+
+.landing-card--hardware:hover {
+    transform: translateY(-4px);
+    border-color: rgba(167, 139, 250, 0.2);
+}
+
+/* ---------- icon container ---------- */
+.card-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    position: relative;
+}
+
+.card-icon--software {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(52, 211, 153, 0.1));
+    color: #38bdf8;
+    box-shadow: 0 0 30px rgba(56, 189, 248, 0.1);
+}
+
+.card-icon--hardware {
+    background: linear-gradient(135deg, rgba(167, 139, 250, 0.12), rgba(244, 114, 182, 0.08));
+    color: #a78bfa;
+    box-shadow: 0 0 30px rgba(167, 139, 250, 0.08);
+}
+
+/* icon SVG sizing */
+.card-icon svg {
+    width: 40px;
+    height: 40px;
+}
+
+/* ---------- card text ---------- */
+.card-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    text-align: center;
+}
+
+.card-desc {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    text-align: center;
+    line-height: 1.6;
+    max-width: 300px;
+}
+
+/* ---------- CTA button ---------- */
+.card-cta {
+    margin-top: 0.75rem;
+    padding: 0.75rem 2rem;
+    border-radius: 9999px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.02em;
+}
+
+.card-cta--software {
+    background: linear-gradient(135deg, #38bdf8, #34d399);
+    color: #0a0a1a;
+    box-shadow: 0 4px 20px rgba(56, 189, 248, 0.3);
+}
+
+.card-cta--software:hover {
+    box-shadow: 0 6px 30px rgba(56, 189, 248, 0.5);
+    transform: scale(1.05);
+}
+
+.card-cta--hardware {
+    background: rgba(167, 139, 250, 0.12);
+    color: #a78bfa;
+    border: 1px solid rgba(167, 139, 250, 0.25);
+    cursor: default;
+}
+
+/* ---------- coming-soon badge ---------- */
+.coming-soon-badge {
+    position: absolute;
+    top: 1rem;
+    right: -2rem;
+    background: linear-gradient(135deg, #a78bfa, #f472b6);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.3rem 2.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    transform: rotate(35deg);
+    box-shadow: 0 2px 12px rgba(167, 139, 250, 0.4);
+    z-index: 3;
+}
+
+/* ---------- bottom tagline ---------- */
+.landing-footer {
+    font-size: 0.8rem;
+    color: rgba(148, 163, 184, 0.5);
+    text-align: center;
+    animation: fadeSlideUp 0.8s ease-out 0.6s both;
+}
+
+.landing-footer a {
+    color: #38bdf8;
+    text-decoration: none;
+}
+
+/* ---------- version chips ---------- */
+.card-chips {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.chip {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 9999px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+}
+
+.chip--cyan {
+    background: rgba(56, 189, 248, 0.1);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.15);
+}
+
+.chip--violet {
+    background: rgba(167, 139, 250, 0.1);
+    color: #a78bfa;
+    border: 1px solid rgba(167, 139, 250, 0.15);
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 768px) {
+    .landing-cards {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .landing-card {
+        max-width: 100%;
+    }
+
+    .landing-logo {
+        font-size: 2.5rem;
+    }
+
+    .landing-question {
+        font-size: 1.15rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .landing-logo {
+        font-size: 2rem;
+    }
+
+    .landing-content {
+        gap: 2rem;
+        padding: 1.25rem;
+    }
+
+    .landing-card {
+        padding: 2rem 1.5rem;
+    }
+}

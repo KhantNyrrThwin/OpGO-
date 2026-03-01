@@ -22,7 +22,7 @@ import { executeJC } from '../functions/jc';
 import { executeINR } from '../functions/inr';
 import { executeDCR } from '../functions/dcr';
 import { executeMULI } from '../functions/muli';
-import { executeMUL} from '../functions/mul';
+import { executeMUL } from '../functions/mul';
 import { executeDIV } from '../functions/div';
 import { executeADDC } from '../functions/addc';
 import { executeADDI } from '../functions/addi';
@@ -46,7 +46,12 @@ import { executeSETC } from '../functions/setc';
 import { getInitialFlags, getInitialRegisters, type Registers as RegistersType, type Flags as FlagsType } from '../functions/types';
 import { useTheme } from '../contexts/ThemeContext';
 
-export default function ControlBar() {
+interface ControlBarProps {
+  onToggleMemory?: () => void;
+  showMemory?: boolean;
+}
+
+export default function ControlBar({ onToggleMemory, showMemory }: ControlBarProps = {}) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [showDropdown, setShowDropdown] = useState(false);
@@ -58,14 +63,14 @@ export default function ControlBar() {
   const isRunningRef = useRef<boolean>(false);
 
   const getCurrentMemory = (): Promise<number[]> => {
-  return new Promise((resolve) => {
-    const handleMemory = (event: CustomEvent) => {
-      resolve(event.detail as number[]);
-      window.removeEventListener('getMemory', handleMemory as EventListener);
-    };
-    window.addEventListener('getMemory', handleMemory as EventListener);
-    window.dispatchEvent(new CustomEvent('requestMemory'));
-  });
+    return new Promise((resolve) => {
+      const handleMemory = (event: CustomEvent) => {
+        resolve(event.detail as number[]);
+        window.removeEventListener('getMemory', handleMemory as EventListener);
+      };
+      window.addEventListener('getMemory', handleMemory as EventListener);
+      window.dispatchEvent(new CustomEvent('requestMemory'));
+    });
   };
 
   const handleOpen = async () => {
@@ -184,7 +189,7 @@ export default function ControlBar() {
   const stepInto = async () => {
     const content = await getCurrentContent();
     const labelMap = parseLabels(content);
-    
+
     // Block on semicolon errors
     const semiErrors = getSemicolonErrors(content);
     if (semiErrors.length > 0) {
@@ -221,7 +226,8 @@ export default function ControlBar() {
         rawLines[currentLineRef.current].trim().startsWith('//') ||
         rawLines[currentLineRef.current].trim().startsWith(';')
       )
-    ) {      currentLineRef.current += 1;
+    ) {
+      currentLineRef.current += 1;
     }
     if (currentLineRef.current >= totalLines) return;
 
@@ -249,34 +255,34 @@ export default function ControlBar() {
           result = { registers: staResult.registers, flags: staResult.flags };
           if (staResult.memory !== memory) {
             window.dispatchEvent(new CustomEvent('setMemory', { detail: staResult.memory }));
-              }
+          }
         }
           break;
 
         case 'ldax':
           result = executeLDAX(nextInstruction, regs, cpuFlags, memory);
           if (result.error) {
-            window.dispatchEvent(new CustomEvent('externalErrors', { 
-              detail: [{ 
-                line: currentLineRef.current, 
-                message: result.error, 
-                type: 'syntax' 
-              }] 
+            window.dispatchEvent(new CustomEvent('externalErrors', {
+              detail: [{
+                line: currentLineRef.current,
+                message: result.error,
+                type: 'syntax'
+              }]
             }));
             return;
           }
           break;
-       
-        
+
+
         case 'stax':
           result = executeSTAX(nextInstruction, regs, cpuFlags, memory);
           if (result.error) {
-            window.dispatchEvent(new CustomEvent('externalErrors', { 
-              detail: [{ 
-                line: currentLineRef.current, 
-                message: result.error, 
-                type: 'syntax' 
-              }] 
+            window.dispatchEvent(new CustomEvent('externalErrors', {
+              detail: [{
+                line: currentLineRef.current,
+                message: result.error,
+                type: 'syntax'
+              }]
             }));
             return;
           }
@@ -291,12 +297,12 @@ export default function ControlBar() {
         case 'mov':
           result = executeMOV(nextInstruction, regs, cpuFlags, memory);
           if (result.error) {
-            window.dispatchEvent(new CustomEvent('externalErrors', { 
-              detail: [{ 
-                line: currentLineRef.current, 
-                message: result.error, 
-                type: 'syntax' 
-              }] 
+            window.dispatchEvent(new CustomEvent('externalErrors', {
+              detail: [{
+                line: currentLineRef.current,
+                message: result.error,
+                type: 'syntax'
+              }]
             }));
             return;
           }
@@ -306,233 +312,244 @@ export default function ControlBar() {
           }
           break;
         case 'jmp':
-            result = executeJMP(nextInstruction, regs, cpuFlags, labelMap);
-            if (result.jumpTo !== undefined) {
-              currentLineRef.current = result.jumpTo;
-              setCpuFlags(result.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-              return; // Skip incrementing line
-            }
-            break;
+          result = executeJMP(nextInstruction, regs, cpuFlags, labelMap);
+          if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+          }
+          break;
         case 'jnz':
-            result = executeJNZ(nextInstruction, regs, cpuFlags, labelMap);
-            if (result.jumpTo !== undefined) {
-              currentLineRef.current = result.jumpTo;
-              setCpuFlags(result.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-              return; // Skip incrementing line
-            }
-            break;
+          result = executeJNZ(nextInstruction, regs, cpuFlags, labelMap);
+          if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+          }
+          break;
         case 'jz':
-            result = executeJZ(nextInstruction, regs, cpuFlags, labelMap);
-            if (result.jumpTo !== undefined) {
-              currentLineRef.current = result.jumpTo;
-              setCpuFlags(result.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-              return; // Skip incrementing line
-            }
-            break;
+          result = executeJZ(nextInstruction, regs, cpuFlags, labelMap);
+          if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+          }
+          break;
         case 'jnc':
-            result = executeJNC(nextInstruction, regs, cpuFlags, labelMap);
-            if (result.jumpTo !== undefined) {
-              currentLineRef.current = result.jumpTo;
-              setCpuFlags(result.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-              return; // Skip incrementing line
-            }
-            break;
-   // In the stepInto function, add this case to the switch statement:
+          result = executeJNC(nextInstruction, regs, cpuFlags, labelMap);
+          if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+          }
+          break;
+        // In the stepInto function, add this case to the switch statement:
         case 'add':
           result = executeADD(nextInstruction, regs, cpuFlags, memory);
-          break;          
-//Raven
-case 'jc':
-  result = executeJC(nextInstruction, regs, cpuFlags, labelMap);
-  if (result.jumpTo !== undefined) {
-      currentLineRef.current = result.jumpTo;
-      setCpuFlags(result.flags);
-      window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-      window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-      return; // Skip incrementing line
-  }
-  break;
-  case 'jm':
-  result = executeJM(nextInstruction, regs, cpuFlags, labelMap);
-  if (result.jumpTo !== undefined) {
-      currentLineRef.current = result.jumpTo;
-      setCpuFlags(result.flags);
-      window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-      window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-      return; // Skip incrementing line
-  }
-  break;
-  case 'jp':
-  result = executeJP(nextInstruction, regs, cpuFlags, labelMap);
-  if (result.jumpTo !== undefined) {
-      currentLineRef.current = result.jumpTo;
-      setCpuFlags(result.flags);
-      window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-      window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-      return; // Skip incrementing line
-  }
-  break;
-  //Raven
-  case 'cmp':
-    result = executeCMP(nextInstruction, regs, cpuFlags, memory);
-    break;
-case 'cpi':
-    result = executeCPI(nextInstruction, regs, cpuFlags);
-    break;
-  //Raven
-  case 'inr':
+          break;
+        //Raven
+        case 'jc':
+          result = executeJC(nextInstruction, regs, cpuFlags, labelMap);
+          if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+          }
+          break;
+        case 'jm':
+          result = executeJM(nextInstruction, regs, cpuFlags, labelMap);
+          if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+          }
+          break;
+        case 'jp':
+          result = executeJP(nextInstruction, regs, cpuFlags, labelMap);
+          if (result.jumpTo !== undefined) {
+            currentLineRef.current = result.jumpTo;
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Skip incrementing line
+          }
+          break;
+        //Raven
+        case 'cmp':
+          result = executeCMP(nextInstruction, regs, cpuFlags, memory);
+          break;
+        case 'cpi':
+          result = executeCPI(nextInstruction, regs, cpuFlags);
+          break;
+        //Raven
+        case 'inr':
           result = executeINR(nextInstruction, regs, cpuFlags, memory);
           // Update memory state
           if (result.memory !== memory) {
             window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
           }
           break;
-    case 'dcr':
+        case 'dcr':
           result = executeDCR(nextInstruction, regs, cpuFlags, memory);
           // Update memory state
           if (result.memory !== memory) {
             window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
           }
           break;
-    case 'inx':
-      result = executeINX(nextInstruction, regs, cpuFlags);
-      break;
-    case 'dcx':
-      result = executeDCX(nextInstruction, regs, cpuFlags);
-      break;
-    //Raven
-          case 'subi':
-            result = executeSUBI(nextInstruction, regs, cpuFlags);
+        case 'inx':
+          result = executeINX(nextInstruction, regs, cpuFlags);
           break;
-          case 'muli':
-              result = executeMULI(nextInstruction, regs, cpuFlags);
-              break;
-          case 'mul':
+        case 'dcx':
+          result = executeDCX(nextInstruction, regs, cpuFlags);
+          break;
+        //Raven
+        case 'subi':
+          result = executeSUBI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'muli':
+          result = executeMULI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'mul':
           result = executeMUL(nextInstruction, regs, cpuFlags, memory);
-          break;  
-          case 'div': {
-            const divResult = executeDIV(nextInstruction, regs, cpuFlags, memory);
-            if (divResult.halt) {
-              window.dispatchEvent(new CustomEvent('externalErrors', {
-                detail: [{
-                  line: currentLineRef.current,
-                  message: divResult.error ?? 'DIVIDE BY ZERO',
-                  type: 'syntax'
-                }]
-              }));
-              currentLineRef.current = rawLines.length;
-              setCpuFlags(divResult.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: divResult.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: divResult.flags }));
-              return;
-            }
-            result = divResult;
-            break;
+          break;
+        case 'div': {
+          const divResult = executeDIV(nextInstruction, regs, cpuFlags, memory);
+          if (divResult.halt) {
+            window.dispatchEvent(new CustomEvent('externalErrors', {
+              detail: [{
+                line: currentLineRef.current,
+                message: divResult.error ?? 'DIVIDE BY ZERO',
+                type: 'syntax'
+              }]
+            }));
+            currentLineRef.current = rawLines.length;
+            setCpuFlags(divResult.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: divResult.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: divResult.flags }));
+            return;
           }
-          //act
-          case 'addc':
-            result = executeADDC(nextInstruction, regs, cpuFlags, memory);
-            console.log("ADDC result:", result);
-            break;
-          case 'addi':
-            result = executeADDI(nextInstruction, regs, cpuFlags);
-            break;
-          case 'addci':
-            result = executeADDCI(nextInstruction, regs, cpuFlags);
-            break;
-          case 'sub':
-            result = executeSUB(nextInstruction, regs, cpuFlags, memory);
-            break;
-          case 'subb':
-            result = executeSUBB(nextInstruction, regs, cpuFlags, memory);
-            break;
-          case 'subbi':
-            result = executeSUBBI(nextInstruction, regs, cpuFlags);
-            break;
-          case 'divi': {
-            const diviResult = executeDIVI(nextInstruction, regs, cpuFlags);
-            if (diviResult.halt) {
-              window.dispatchEvent(new CustomEvent('externalErrors', {
-                detail: [{
-                  line: currentLineRef.current,
-                  message: diviResult.error ?? 'DIVIDE BY ZERO',
-                  type: 'syntax'
-                }]
-              }));
-              currentLineRef.current = rawLines.length;
-              setCpuFlags(diviResult.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: diviResult.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: diviResult.flags }));
-              return;
-            }
-            result = diviResult;
-            break;
+          result = divResult;
+          break;
+        }
+        //act
+        case 'addc':
+          result = executeADDC(nextInstruction, regs, cpuFlags, memory);
+          console.log("ADDC result:", result);
+          break;
+        case 'addi':
+          result = executeADDI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'addci':
+          result = executeADDCI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'sub':
+          result = executeSUB(nextInstruction, regs, cpuFlags, memory);
+          break;
+        case 'subb':
+          result = executeSUBB(nextInstruction, regs, cpuFlags, memory);
+          break;
+        case 'subbi':
+          result = executeSUBBI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'divi': {
+          const diviResult = executeDIVI(nextInstruction, regs, cpuFlags);
+          if (diviResult.halt) {
+            window.dispatchEvent(new CustomEvent('externalErrors', {
+              detail: [{
+                line: currentLineRef.current,
+                message: diviResult.error ?? 'DIVIDE BY ZERO',
+                type: 'syntax'
+              }]
+            }));
+            currentLineRef.current = rawLines.length;
+            setCpuFlags(diviResult.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: diviResult.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: diviResult.flags }));
+            return;
           }
-          case 'and':
-            result = executeAND(nextInstruction, regs, cpuFlags, memory);
-            break;
-          case 'andi':
-            result = executeANDI(nextInstruction, regs, cpuFlags);
-            break;
-          case 'or':
-            result = executeOR(nextInstruction, regs, cpuFlags, memory);
-            break;
-          case 'ori':
-            result = executeORI(nextInstruction, regs, cpuFlags);
-            break;
-          case 'not':
-            result = executeNOT(nextInstruction, regs, cpuFlags);
-            break;
-          case 'xor':
-            result = executeXOR(nextInstruction, regs, cpuFlags, memory);
-            break;
-          case 'xori':
-            result = executeXORI(nextInstruction, regs, cpuFlags);
-            break;
-          case 'setc':
-            result = executeSETC(nextInstruction, regs, cpuFlags);
-            break;
-          case 'hlt':
-            result = executeHLT(nextInstruction, regs, cpuFlags);
-            if (result.halt) {
-              console.log('Program halted by HLT instruction');
-              // Stop execution immediately
-              currentLineRef.current = rawLines.length; // Move to end to stop execution
-              setCpuFlags(result.flags);
-              window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
-              window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
-              return; // Exit stepInto function
-            }
-            break;
-          case 'mvi':
-            result = executeMVI(nextInstruction, regs, cpuFlags, memory);
-            if (result.error) {
-              window.dispatchEvent(new CustomEvent('externalErrors', { 
-                detail: [{ 
-                  line: currentLineRef.current, 
-                  message: result.error, 
-                  type: 'syntax' 
-                }] 
-              }));
-              return;
-            }
-            // Update memory state
-            if (result.memory !== memory) {
-              window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
-            }
-            break;
+          result = diviResult;
+          break;
+        }
+        case 'and':
+          result = executeAND(nextInstruction, regs, cpuFlags, memory);
+          break;
+        case 'andi':
+          result = executeANDI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'or':
+          result = executeOR(nextInstruction, regs, cpuFlags, memory);
+          break;
+        case 'ori':
+          result = executeORI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'not':
+          result = executeNOT(nextInstruction, regs, cpuFlags);
+          break;
+        case 'xor':
+          result = executeXOR(nextInstruction, regs, cpuFlags, memory);
+          break;
+        case 'xori':
+          result = executeXORI(nextInstruction, regs, cpuFlags);
+          break;
+        case 'setc':
+          result = executeSETC(nextInstruction, regs, cpuFlags);
+          break;
+        case 'hlt':
+          result = executeHLT(nextInstruction, regs, cpuFlags);
+          if (result.halt) {
+            console.log('Program halted by HLT instruction');
+            // Stop execution immediately
+            currentLineRef.current = rawLines.length; // Move to end to stop execution
+            setCpuFlags(result.flags);
+            window.dispatchEvent(new CustomEvent('setRegisters', { detail: result.registers }));
+            window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
+            return; // Exit stepInto function
+          }
+          break;
+        case 'mvi':
+          result = executeMVI(nextInstruction, regs, cpuFlags, memory);
+          if (result.error) {
+            window.dispatchEvent(new CustomEvent('externalErrors', {
+              detail: [{
+                line: currentLineRef.current,
+                message: result.error,
+                type: 'syntax'
+              }]
+            }));
+            return;
+          }
+          // Update memory state
+          if (result.memory !== memory) {
+            window.dispatchEvent(new CustomEvent('setMemory', { detail: result.memory }));
+          }
+          break;
+        case 'test':
+          try {
+            fetch('http://localhost:5000/test-pin', { method: 'POST' })
+              .then(res => res.json())
+              .then(data => console.log('Hardware test:', data))
+              .catch(e => console.error("Hardware disconnected:", e));
+          } catch (e) {
+            console.error(e);
+          }
+          result = { registers: regs, flags: cpuFlags }; // No state changes
+          break;
         default:
           return;
       }
-      
+
     }
 
     const { registers: newRegs, flags: newFlags } = result;
@@ -547,10 +564,10 @@ case 'cpi':
 
   const handleRun = async () => {
     if (isRunningRef.current) return; // Prevent multiple runs
-    
+
     const content = await getCurrentContent();
     const labelMap = parseLabels(content);
-    
+
     // Block on semicolon errors
     const semiErrors = getSemicolonErrors(content);
     if (semiErrors.length > 0) {
@@ -562,7 +579,7 @@ case 'cpi':
     // Validate all other errors (display-only) before running
     window.dispatchEvent(new CustomEvent('validateInstructions'));
     await new Promise(resolve => setTimeout(resolve, 50));
-    
+
     const rawLines = content.split('\n');
 
     // Reset registers and flags to initial state
@@ -584,21 +601,21 @@ case 'cpi':
 
       // Keep track of current flags locally to avoid React state update delays
       let currentFlags = initialFlags;
-            while (isRunningRef.current && currentLineRef.current < rawLines.length) {
+      while (isRunningRef.current && currentLineRef.current < rawLines.length) {
         // Check if we should stop
         if (!isRunningRef.current) break;
-        
-           // Advance to next non-empty, non-comment line
-           while (
-            currentLineRef.current < rawLines.length && (
-              rawLines[currentLineRef.current].trim() === '' ||
-              rawLines[currentLineRef.current].trim().startsWith('//') ||
-              rawLines[currentLineRef.current].trim().startsWith(';')
-            )
-          ) {
+
+        // Advance to next non-empty, non-comment line
+        while (
+          currentLineRef.current < rawLines.length && (
+            rawLines[currentLineRef.current].trim() === '' ||
+            rawLines[currentLineRef.current].trim().startsWith('//') ||
+            rawLines[currentLineRef.current].trim().startsWith(';')
+          )
+        ) {
           currentLineRef.current += 1;
         }
-        
+
         if (currentLineRef.current >= rawLines.length) break;
 
         // Highlight current line
@@ -655,10 +672,10 @@ case 'cpi':
 
             case 'lda':
               result = executeLDA(nextInstruction, regs, cpuFlags, memory);
-            break;
+              break;
             case 'ldax':
               result = executeLDAX(nextInstruction, regs, cpuFlags, memory);
-            break;
+              break;
             case 'stax': {
               const staxResult = executeSTAX(nextInstruction, regs, cpuFlags, memory);
 
@@ -764,8 +781,8 @@ case 'cpi':
               break;
             //Raven
             case 'jc':
-            result = executeJC(nextInstruction,regs, currentFlags, labelMap);
-            if (result.jumpTo !== undefined) {
+              result = executeJC(nextInstruction, regs, currentFlags, labelMap);
+              if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
                 currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
@@ -773,11 +790,11 @@ case 'cpi':
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
                 await new Promise(resolve => setTimeout(resolve, 500)); // 100ms delay
                 continue; // Skip incrementing line
-            }
-            break;
+              }
+              break;
             case 'jm':
-            result = executeJM(nextInstruction, regs, currentFlags, labelMap);
-            if (result.jumpTo !== undefined) {
+              result = executeJM(nextInstruction, regs, currentFlags, labelMap);
+              if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
                 currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
@@ -785,11 +802,11 @@ case 'cpi':
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
                 await new Promise(resolve => setTimeout(resolve, 500)); // 100ms delay
                 continue; // Skip incrementing line
-            }
-            break;
+              }
+              break;
             case 'jp':
-            result = executeJP(nextInstruction,regs, currentFlags, labelMap);
-            if (result.jumpTo !== undefined) {
+              result = executeJP(nextInstruction, regs, currentFlags, labelMap);
+              if (result.jumpTo !== undefined) {
                 currentLineRef.current = result.jumpTo;
                 currentFlags = result.flags; // Update local flags
                 setCpuFlags(result.flags);
@@ -797,12 +814,12 @@ case 'cpi':
                 window.dispatchEvent(new CustomEvent('setFlags', { detail: result.flags }));
                 await new Promise(resolve => setTimeout(resolve, 500)); // 100ms delay
                 continue; // Skip incrementing line
-            }
-            break;
+              }
+              break;
             // In the handleRun function, add this case to the switch statement:
             case 'add':
-            result = executeADD(nextInstruction, regs, cpuFlags, memory);
-            break;
+              result = executeADD(nextInstruction, regs, cpuFlags, memory);
+              break;
             //Raven
             case 'inr': {
               const inrResult = executeINR(nextInstruction, regs, cpuFlags, memory);
@@ -842,12 +859,12 @@ case 'cpi':
               break;
             //Raven
             case 'cmp':
-            result = executeCMP(nextInstruction, regs, currentFlags, memory);
-            // No jump handling needed for CMP - it just updates flags
-            break;
+              result = executeCMP(nextInstruction, regs, currentFlags, memory);
+              // No jump handling needed for CMP - it just updates flags
+              break;
             case 'cpi':
-            result = executeCPI(nextInstruction, regs, currentFlags);
-            break;
+              result = executeCPI(nextInstruction, regs, currentFlags);
+              break;
             //Raven
             case 'subi':
               result = executeSUBI(nextInstruction, regs, currentFlags);
@@ -857,7 +874,7 @@ case 'cpi':
               break;
             case 'mul':
               result = executeMUL(nextInstruction, regs, currentFlags, memory);
-            break;
+              break;
             case 'div': {
               const divResult = executeDIV(nextInstruction, regs, currentFlags, memory);
               if (divResult.halt) {
@@ -994,6 +1011,17 @@ case 'cpi':
 
               break;
             }
+            case 'test':
+              try {
+                fetch('http://localhost:5000/test-pin', { method: 'POST' })
+                  .then(res => res.json())
+                  .then(data => console.log('Hardware test:', data))
+                  .catch(e => console.error("Hardware disconnected:", e));
+              } catch (e) {
+                console.error(e);
+              }
+              result = { registers: regs, flags: currentFlags }; // No state changes
+              break;
             default:
               return;
           }
@@ -1027,22 +1055,22 @@ case 'cpi':
   const handleStop = () => {
     // Stop any running process
     isRunningRef.current = false;
-    
+
     currentLineRef.current = 0;
     isFirstStepRef.current = true;
-    
+
     // Reset registers and flags to initial state
     const initialRegisters = getInitialRegisters();
     const initialFlags = getInitialFlags();
     setCpuFlags(initialFlags);
     window.dispatchEvent(new CustomEvent('setRegisters', { detail: initialRegisters }));
     window.dispatchEvent(new CustomEvent('setFlags', { detail: initialFlags }));
-    
+
     window.dispatchEvent(new CustomEvent('highlightLine', { detail: -1 }));
     window.dispatchEvent(new CustomEvent('clearErrors'));
   };
 
-  
+
   return (
     <div className={`${isDark ? 'bg-[#d3d3d3] text-white' : 'bg-gray-100 text-gray-900'} flex items-center justify-between px-4 py-2 text-sm font-medium relative z-25`}>
       {/* File Menu */}
@@ -1060,31 +1088,31 @@ case 'cpi':
         {showDropdown && (
           <div className={`${isDark ? 'bg-[#3a3a3a] border border-gray-600' : 'bg-white border border-gray-200'} absolute top-8 left-0 rounded shadow-lg z-25`}>
             <ul className="flex flex-col text-left">
-              <li 
+              <li
                 className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-10 py-4 cursor-pointer`}
                 onClick={handleOpen}
               >
                 Open (.opgo/.opg/.mpc)
               </li>
-              <li 
+              <li
                 className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-10 py-4 cursor-pointer`}
                 onClick={handleSave}
               >
                 Save
               </li>
-              <li 
+              <li
                 className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-8 py-4 cursor-pointer`}
                 onClick={handleSaveAs}
               >
                 Save As (.opgo)
               </li>
-              <li 
+              <li
                 className={`${isDark ? 'hover:bg-green-700' : 'hover:bg-gray-100'} px-8 py-4 cursor-pointer`}
                 onClick={handleExportAsm}
               >
                 Export as .asm
               </li>
-             
+
             </ul>
           </div>
         )}
@@ -1092,6 +1120,30 @@ case 'cpi':
 
       {/* Action Buttons Styled Like Image */}
       <div className="flex items-center gap-4">
+        {/* Memory Toggle Button */}
+        {onToggleMemory && (
+          <button
+            onClick={onToggleMemory}
+            title={showMemory ? "Hide Memory" : "Show Memory"}
+            className={`${showMemory
+              ? isDark
+                ? 'bg-indigo-500 hover:bg-indigo-600 text-white border-indigo-400'
+                : 'bg-indigo-100 hover:bg-indigo-200 text-indigo-900 border-indigo-300'
+              : isDark
+                ? 'bg-gray-700 hover:bg-gray-600 text-white border-gray-500'
+                : 'bg-white hover:bg-gray-100 text-gray-900 border-gray-300'
+              } border px-3 py-1 rounded flex items-center gap-2 cursor-pointer transition-colors shadow-sm`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+            </svg>
+            Memory
+          </button>
+        )}
+
         {/* Stop Button */}
         <button className={`${isDark ? 'bg-red-600 hover:bg-red-700' : 'bg-red-500 hover:bg-red-600'} rounded-full p-2 flex items-center justify-center cursor-pointer`} onClick={handleStop}>
           <div className="bg-white w-3.5 h-3.5" />
@@ -1107,7 +1159,7 @@ case 'cpi':
           <PlayIcon className="h-4.5 w-4.5 text-white" />
         </button>
 
-        
+
       </div>
     </div>
   );
